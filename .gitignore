@@ -1,0 +1,26 @@
+# build artifacts
+build/
+
+# python venv
+ml/.venv/
+__pycache__/
+*.pyc
+
+# generated training data / model weights
+ml/data/
+ml/labels_*/
+ml/feedback_table.bin
+ml/*.pt
+ml/*.npy
+ml/train_log*.json
+
+# local logs
+*.log
+
+# editor / OS junk
+.DS_Store
+.vscode/
+.idea/
+
+# local conversation state
+.claude/
