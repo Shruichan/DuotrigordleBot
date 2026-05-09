@@ -5,17 +5,27 @@
 
 namespace dt {
 
-// Initial naive implementation - doesn't handle duplicate letters correctly.
 Pattern compute_feedback(std::string_view guess, std::string_view answer) {
     if (guess.size() != 5 || answer.size() != 5) {
         throw std::invalid_argument("compute_feedback: words must be 5 letters");
     }
     std::array<uint8_t, 5> digits{};
+    std::array<bool, 5> answer_used{};
+
     for (int i = 0; i < 5; ++i) {
         if (guess[i] == answer[i]) {
             digits[i] = 2;
-        } else if (answer.find(guess[i]) != std::string_view::npos) {
-            digits[i] = 1;
+            answer_used[i] = true;
+        }
+    }
+    for (int i = 0; i < 5; ++i) {
+        if (digits[i] == 2) continue;
+        for (int j = 0; j < 5; ++j) {
+            if (!answer_used[j] && guess[i] == answer[j]) {
+                digits[i] = 1;
+                answer_used[j] = true;
+                break;
+            }
         }
     }
     Pattern p = 0;
