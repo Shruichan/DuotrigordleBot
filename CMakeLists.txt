@@ -15,5 +15,17 @@ add_compile_options($<$<CONFIG:Release>:-O3>)
 set(DATA_DIR "${CMAKE_SOURCE_DIR}/data" CACHE PATH "Path to wordlist data")
 add_compile_definitions(DT_DATA_DIR="${DATA_DIR}")
 
-add_library(dt_core STATIC core/src/feedback.cpp)
+add_library(dt_core STATIC
+    core/src/feedback.cpp
+    core/src/wordlists.cpp
+)
 target_include_directories(dt_core PUBLIC core/include)
+
+enable_testing()
+find_package(GTest REQUIRED)
+add_executable(dt_tests
+    core/tests/test_feedback.cpp
+    core/tests/test_wordlists.cpp
+)
+target_link_libraries(dt_tests PRIVATE dt_core GTest::gtest GTest::gtest_main)
+add_test(NAME dt_tests COMMAND dt_tests)
