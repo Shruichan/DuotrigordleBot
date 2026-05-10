@@ -18,6 +18,7 @@ add_compile_definitions(DT_DATA_DIR="${DATA_DIR}")
 add_library(dt_core STATIC
     core/src/feedback.cpp
     core/src/wordlists.cpp
+    core/src/game_state.cpp
 )
 target_include_directories(dt_core PUBLIC core/include)
 
@@ -26,6 +27,7 @@ find_package(GTest REQUIRED)
 add_executable(dt_tests
     core/tests/test_feedback.cpp
     core/tests/test_wordlists.cpp
+    core/tests/test_game_state.cpp
 )
 target_link_libraries(dt_tests PRIVATE dt_core GTest::gtest GTest::gtest_main)
 add_test(NAME dt_tests COMMAND dt_tests)
