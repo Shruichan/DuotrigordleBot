@@ -20,6 +20,7 @@ add_library(dt_core STATIC
     core/src/wordlists.cpp
     core/src/game_state.cpp
     core/src/strategy_greedy.cpp
+    core/src/simulator.cpp
 )
 target_include_directories(dt_core PUBLIC core/include)
 
@@ -32,3 +33,6 @@ add_executable(dt_tests
 )
 target_link_libraries(dt_tests PRIVATE dt_core GTest::gtest GTest::gtest_main)
 add_test(NAME dt_tests COMMAND dt_tests)
+
+add_executable(dt_bench core/bench/main.cpp)
+target_link_libraries(dt_bench PRIVATE dt_core)
