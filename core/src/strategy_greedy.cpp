@@ -27,6 +27,9 @@ inline double entropy_on_board(const Pattern* row, const std::vector<WordIdx>& c
 }
 
 WordIdx GreedyStrategy::choose_guess(const GameState& state) {
+    if (state.guesses_used == 0 && opener_cache_ != INVALID_WORD) {
+        return opener_cache_;
+    }
     std::vector<int> active;
     for (int i = 0; i < NUM_BOARDS; ++i) {
         if (!state.boards[i].solved && !state.boards[i].candidates.empty()) {
@@ -56,7 +59,9 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
         scores[g] = s;
     }
     auto it = std::max_element(scores.begin(), scores.end());
-    return static_cast<WordIdx>(std::distance(scores.begin(), it));
+    WordIdx best_g = static_cast<WordIdx>(std::distance(scores.begin(), it));
+    if (state.guesses_used == 0) opener_cache_ = best_g;
+    return best_g;
 }
 
 }
