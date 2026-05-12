@@ -23,8 +23,10 @@ add_library(dt_core STATIC
     core/src/simulator.cpp
 )
 target_include_directories(dt_core PUBLIC core/include)
+target_link_libraries(dt_core PUBLIC OpenMP::OpenMP_CXX)
 
 enable_testing()
+find_package(OpenMP REQUIRED)
 find_package(GTest REQUIRED)
 add_executable(dt_tests
     core/tests/test_feedback.cpp

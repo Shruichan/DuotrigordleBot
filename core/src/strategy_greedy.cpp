@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace dt {
 
@@ -35,27 +36,27 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
     if (active.empty()) return 0;
 
     const size_t G = w_.num_guesses();
-    double best = -1.0;
-    WordIdx best_g = 0;
-    for (WordIdx g = 0; g < G; ++g) {
-        const Pattern* row = w_.feedback_row(g);
+    std::vector<double> scores(G);
+    #pragma omp parallel for schedule(static)
+    for (long long g = 0; g < static_cast<long long>(G); ++g) {
+        const Pattern* row = w_.feedback_row(static_cast<WordIdx>(g));
         double s = 0.0;
         for (int b : active) {
             s += entropy_on_board(row, state.boards[b].candidates);
         }
-        // simple flat answer bonus
-        int32_t sol = w_.guess_to_sol(g);
+        int32_t sol = w_.guess_to_sol(static_cast<WordIdx>(g));
         if (sol >= 0) {
             for (int b : active) {
                 for (WordIdx c : state.boards[b].candidates) {
-                    if (c == static_cast<WordIdx>(sol)) { s += answer_bonus_; goto done; }
+                    if (c == static_cast<WordIdx>(sol)) { s += answer_bonus_; goto have_bonus; }
                 }
             }
-            done:;
+            have_bonus:;
         }
-        if (s > best) { best = s; best_g = g; }
+        scores[g] = s;
     }
-    return best_g;
+    auto it = std::max_element(scores.begin(), scores.end());
+    return static_cast<WordIdx>(std::distance(scores.begin(), it));
 }
 
 }
