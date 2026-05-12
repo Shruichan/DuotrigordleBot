@@ -14,7 +14,7 @@ public:
 
 class GreedyStrategy : public Strategy {
 public:
-    explicit GreedyStrategy(const Wordlists& w, double answer_bonus = 0.1)
+    explicit GreedyStrategy(const Wordlists& w, double answer_bonus = 1.0)
         : w_(w), answer_bonus_(answer_bonus), opener_cache_(INVALID_WORD) {}
 
     WordIdx choose_guess(const GameState& state) override;
