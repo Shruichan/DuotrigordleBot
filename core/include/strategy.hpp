@@ -3,6 +3,8 @@
 #include "game_state.hpp"
 #include "wordlists.hpp"
 
+#include <vector>
+
 namespace dt {
 
 class Strategy {
@@ -19,6 +21,8 @@ public:
 
     WordIdx choose_guess(const GameState& state) override;
     const char* name() const override { return "greedy"; }
+
+    std::vector<WordIdx> top_k_guesses(const GameState& state, int k) const;
 
     void clear_cache() { opener_cache_ = INVALID_WORD; }
 

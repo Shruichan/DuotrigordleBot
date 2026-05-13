@@ -20,6 +20,7 @@ add_library(dt_core STATIC
     core/src/wordlists.cpp
     core/src/game_state.cpp
     core/src/strategy_greedy.cpp
+    core/src/strategy_beam.cpp
     core/src/simulator.cpp
 )
 target_include_directories(dt_core PUBLIC core/include)

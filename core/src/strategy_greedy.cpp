@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <vector>
 
 namespace dt {
@@ -72,6 +73,30 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
     WordIdx best_g = static_cast<WordIdx>(std::distance(scores.begin(), it));
     if (state.guesses_used == 0) opener_cache_ = best_g;
     return best_g;
+}
+
+std::vector<WordIdx> GreedyStrategy::top_k_guesses(const GameState& state, int k) const {
+    auto gs = build_setup(w_, state);
+    const size_t G = w_.num_guesses();
+    std::vector<double> scores(G);
+    #pragma omp parallel for schedule(static)
+    for (long long g = 0; g < static_cast<long long>(G); ++g) {
+        const Pattern* row = w_.feedback_row(static_cast<WordIdx>(g));
+        double s = 0.0;
+        for (int b : gs.active) {
+            s += entropy_on_board(row, state.boards[b].candidates);
+        }
+        int32_t sol = w_.guess_to_sol(static_cast<WordIdx>(g));
+        if (sol >= 0) s += answer_bonus_ * gs.expected_solves[sol];
+        scores[g] = s;
+    }
+    std::vector<WordIdx> idx(G);
+    std::iota(idx.begin(), idx.end(), WordIdx{0});
+    const int kk = std::min<int>(k, static_cast<int>(G));
+    std::partial_sort(idx.begin(), idx.begin() + kk, idx.end(),
+                      [&](WordIdx a, WordIdx b) { return scores[a] > scores[b]; });
+    idx.resize(kk);
+    return idx;
 }
 
 }
