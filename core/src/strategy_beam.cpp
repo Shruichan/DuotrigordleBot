@@ -72,7 +72,8 @@ WordIdx BeamStrategy::choose_guess(const GameState& state) {
     // samples for paired-comparison variance reduction.
     std::vector<std::array<WordIdx, NUM_BOARDS>> sampled_answers(samples_);
     {
-        std::mt19937_64 rng(std::hash<uint64_t>{}(state.guesses_used) ^ 0xD06EE0FFEE5DULL);
+        // paired sampling — same answer tuples across candidates
+    std::mt19937_64 rng(std::hash<uint64_t>{}(state.guesses_used) ^ 0xD06EE0FFEE5DULL);
         for (int s = 0; s < samples_; ++s) {
             for (int b = 0; b < NUM_BOARDS; ++b) {
                 const auto& cands = state.boards[b].candidates;
