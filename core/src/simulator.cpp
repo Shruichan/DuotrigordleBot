@@ -5,13 +5,13 @@
 #include <iomanip>
 #include <iostream>
 #include <numeric>
-#include <random>
 
 namespace dt {
 
 GameResult run_one_game(const Wordlists& w, Strategy& strat,
                         const std::array<WordIdx, NUM_BOARDS>& answers,
-                        int max_guesses) {
+                        int max_guesses,
+                        bool use_distinct_constraint) {
     GameState state = GameState::fresh(w);
     GameResult r{};
     r.answers = answers;
@@ -24,7 +24,7 @@ GameResult run_one_game(const Wordlists& w, Strategy& strat,
                 ? PATTERN_ALL_GREEN
                 : w.feedback(g, answers[i]);
         }
-        state.apply_guess(w, g, patterns);
+        state.apply_guess(w, g, patterns, use_distinct_constraint);
     }
 
     r.all_solved = state.game_over();
@@ -36,9 +36,12 @@ GameResult run_one_game(const Wordlists& w, Strategy& strat,
 
 BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
                          int num_games, uint64_t seed, int max_guesses,
-                         bool verbose) {
+                         bool verbose,
+                         bool distinct_answers,
+                         bool use_distinct_constraint) {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<WordIdx> pick(0, static_cast<WordIdx>(w.num_solutions() - 1));
+    std::vector<uint8_t> picked_buf(w.num_solutions(), 0);
 
     BenchStats stats{};
     stats.games = num_games;
@@ -48,12 +51,25 @@ BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
 
     int solved = 0;
     long long total_guesses = 0;
-    int under_37 = 0, under_32 = 0;
+    int under_37 = 0;
+    int under_32 = 0;
+
     auto t0 = std::chrono::steady_clock::now();
     for (int i = 0; i < num_games; ++i) {
         std::array<WordIdx, NUM_BOARDS> answers{};
-        for (auto& a : answers) a = pick(rng);
-        GameResult r = run_one_game(w, strat, answers, max_guesses);
+        if (distinct_answers) {
+            std::fill(picked_buf.begin(), picked_buf.end(), 0);
+            for (auto& a : answers) {
+                WordIdx x;
+                do { x = pick(rng); } while (picked_buf[x]);
+                picked_buf[x] = 1;
+                a = x;
+            }
+        } else {
+            for (auto& a : answers) a = pick(rng);
+        }
+        GameResult r = run_one_game(w, strat, answers, max_guesses, use_distinct_constraint);
+
         if (r.all_solved) {
             ++solved;
             total_guesses += r.guesses_used;
@@ -65,18 +81,20 @@ BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
         } else {
             stats.guess_distribution.back() += 1;
         }
+
         if (verbose && (i + 1) % 50 == 0) {
             auto t = std::chrono::steady_clock::now();
             double s = std::chrono::duration<double>(t - t0).count();
             std::cerr << "  [" << (i + 1) << "/" << num_games << "] "
-                      << "solved=" << solved << " mean="
-                      << std::fixed << std::setprecision(2)
-                      << (solved ? double(total_guesses) / solved : 0.0)
+                      << "solved=" << solved
+                      << " mean=" << std::fixed << std::setprecision(2)
+                      << (solved ? static_cast<double>(total_guesses) / solved : 0.0)
                       << " elapsed=" << std::setprecision(1) << s << "s\n";
         }
     }
+
     stats.solved = solved;
-    stats.mean_guesses = solved ? double(total_guesses) / solved : 0.0;
+    stats.mean_guesses = solved ? static_cast<double>(total_guesses) / solved : 0.0;
     stats.pct_under_37 = 100.0 * under_37 / num_games;
     stats.pct_under_32 = 100.0 * under_32 / num_games;
     return stats;

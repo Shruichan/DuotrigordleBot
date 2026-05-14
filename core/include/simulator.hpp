@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <random>
 #include <vector>
 
 namespace dt {
@@ -31,11 +32,14 @@ struct BenchStats {
 
 GameResult run_one_game(const Wordlists& w, Strategy& strat,
                         const std::array<WordIdx, NUM_BOARDS>& answers,
-                        int max_guesses = 50);
+                        int max_guesses = 50,
+                        bool use_distinct_constraint = true);
 
 BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
                          int num_games, uint64_t seed = 42,
                          int max_guesses = 50,
-                         bool verbose = true);
+                         bool verbose = true,
+                         bool distinct_answers = true,
+                         bool use_distinct_constraint = true);
 
 }
