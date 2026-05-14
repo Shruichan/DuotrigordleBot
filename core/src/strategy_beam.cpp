@@ -101,3 +101,5 @@ WordIdx BeamStrategy::choose_guess(const GameState& state) {
 }
 
 }
+
+// note: beam ties greedy on bench. keeping the implementation but not used by default.
