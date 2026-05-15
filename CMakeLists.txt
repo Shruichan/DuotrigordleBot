@@ -40,3 +40,10 @@ add_test(NAME dt_tests COMMAND dt_tests)
 
 add_executable(dt_bench core/bench/main.cpp)
 target_link_libraries(dt_bench PRIVATE dt_core)
+
+add_executable(dt_cli core/cli/main.cpp)
+target_link_libraries(dt_cli PRIVATE dt_core)
+
+find_package(nlohmann_json REQUIRED)
+add_executable(dt_worker core/server/worker_main.cpp)
+target_link_libraries(dt_worker PRIVATE dt_core nlohmann_json::nlohmann_json)
