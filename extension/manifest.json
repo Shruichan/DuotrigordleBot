@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Duotrigordle Solver",
+  "version": "0.1.0",
+  "description": "Suggests near-optimal guesses while playing Duotrigordle. Requires a local solver service.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://duotrigordle.com/*",
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://duotrigordle.com/*"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Duotrigordle Solver",
+    "default_popup": "popup.html"
+  }
+}
