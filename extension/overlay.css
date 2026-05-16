@@ -1,0 +1,133 @@
+#dt-solver-overlay {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  width: 240px;
+  background: hsl(240, 10%, 12%);
+  color: hsl(240, 10%, 92%);
+  border: 1px solid hsl(240, 10%, 24%);
+  border-radius: 6px;
+  font-family: Rubik, system-ui, sans-serif;
+  font-size: 13px;
+  user-select: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+#dt-solver-overlay .dt-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: hsl(240, 10%, 18%);
+  border-bottom: 1px solid hsl(240, 10%, 24%);
+  cursor: move;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+#dt-solver-overlay .dt-title {
+  font-weight: 600;
+  font-size: 12px;
+  flex: 1;
+}
+#dt-solver-overlay .dt-status {
+  font-size: 11px;
+  color: hsl(240, 10%, 65%);
+}
+#dt-solver-overlay .dt-min {
+  background: transparent;
+  color: hsl(240, 10%, 70%);
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0 6px;
+}
+
+#dt-solver-overlay .dt-body { padding: 10px; }
+#dt-solver-overlay.dt-collapsed .dt-body { display: none; }
+
+#dt-solver-overlay .dt-pick {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  margin-bottom: 6px;
+  min-height: 32px;
+  align-items: center;
+}
+#dt-solver-overlay .dt-done {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(148, 59%, 65%);
+}
+#dt-solver-overlay .dt-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: hsl(150, 88%, 30%); /* matches site --green-bg */
+  color: white;
+  font-weight: 700;
+  font-size: 18px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+#dt-solver-overlay .dt-meta {
+  text-align: center;
+  font-size: 11px;
+  color: hsl(240, 10%, 70%);
+  margin-bottom: 8px;
+}
+
+#dt-solver-overlay .dt-alts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid hsl(240, 10%, 22%);
+  padding-top: 6px;
+}
+#dt-solver-overlay .dt-alt {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+#dt-solver-overlay .dt-alt:hover {
+  background: hsl(240, 10%, 16%);
+}
+#dt-solver-overlay .dt-altword {
+  font-family: "Roboto Mono", monospace;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+#dt-solver-overlay .dt-altmeta {
+  color: hsl(240, 10%, 60%);
+}
+
+#dt-solver-overlay .dt-tools {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid hsl(240, 10%, 22%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#dt-solver-overlay .dt-btn {
+  background: hsl(240, 10%, 18%);
+  color: hsl(240, 10%, 90%);
+  border: 1px solid hsl(240, 10%, 28%);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+#dt-solver-overlay .dt-btn:hover {
+  background: hsl(240, 10%, 22%);
+}
+#dt-solver-overlay .dt-copy-status {
+  font-size: 10px;
+  color: hsl(148, 60%, 60%);
+}
