@@ -1,14 +1,105 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8" /><style>
-body { font: 13px system-ui; margin: 12px; width: 240px; }
-h1 { margin: 0 0 8px; font-size: 14px; }
-code { background:#eee; padding:1px 4px; border-radius:3px; font-size:12px; }
-.ok{color:#1a7f37;}.bad{color:#b00;}
-</style></head>
-<body>
-<h1>Duotrigordle Solver</h1>
-<p>Start the local solver:<br><code>python3 server/serve.py</code></p>
-<p>Then open <code>duotrigordle.com</code>; overlay appears top-right.</p>
-<div id="status">…</div>
-<script src="popup.js"></script>
-</body></html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font: 13px system-ui;
+        margin: 0;
+        width: 280px;
+        background: hsl(240, 10%, 12%);
+        color: hsl(240, 10%, 92%);
+      }
+      header {
+        padding: 10px 12px;
+        background: hsl(240, 10%, 18%);
+        border-bottom: 1px solid hsl(240, 10%, 24%);
+      }
+      h1 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      #status {
+        font-size: 11px;
+        margin-top: 4px;
+        color: hsl(240, 10%, 70%);
+      }
+      .ok { color: hsl(148, 60%, 60%); }
+      .bad { color: hsl(0, 80%, 65%); }
+      .pane { padding: 10px 12px; }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .row label { font-size: 12px; }
+      .row select, .row input[type=number] {
+        background: hsl(240, 10%, 16%);
+        color: inherit;
+        border: 1px solid hsl(240, 10%, 26%);
+        border-radius: 3px;
+        padding: 2px 6px;
+        font: inherit;
+      }
+      .row input[type=range] { width: 130px; }
+      .help {
+        font-size: 11px;
+        color: hsl(240, 10%, 60%);
+        margin-top: 4px;
+      }
+      code {
+        background: hsl(240, 10%, 18%);
+        color: hsl(45, 100%, 75%);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11px;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid hsl(240, 10%, 22%);
+        margin: 6px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Duotrigordle Solver</h1>
+      <div id="status">checking solver…</div>
+    </header>
+    <div class="pane">
+      <div class="row">
+        <label for="mode">Mode</label>
+        <select id="mode">
+          <option value="auto">Auto (greedy, info OK)</option>
+          <option value="perfect">Perfect (answers only)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="pool">Solution pool</label>
+        <select id="pool">
+          <option value="default">Default (current)</option>
+          <option value="nyt">NYT (legacy)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="topk">Suggestions shown</label>
+        <input id="topk" type="number" min="1" max="20" value="5" />
+      </div>
+      <div class="row">
+        <label for="alpha">Answer bonus α: <span id="alpha-val">1.0</span></label>
+        <input id="alpha" type="range" min="0" max="3" step="0.1" value="1.0" />
+      </div>
+      <hr />
+      <div class="help">
+        Perfect mode restricts guesses to words still in some board's candidate set
+        (no info-only guesses). Use when going for a 32-guess solve.
+      </div>
+      <div class="help">
+        Solver runs locally — start with <code>python3 server/serve.py</code>.
+      </div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
