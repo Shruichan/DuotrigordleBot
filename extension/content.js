@@ -104,6 +104,48 @@
 
   // --- Overlay UI ---
 
+  function readAnswers() {
+    const boardsWrap = document.querySelector('[class*="_boards_"]');
+    if (!boardsWrap) return null;
+    const boardEls = Array.from(boardsWrap.querySelectorAll('[class*="_board_"]'));
+    const out = [];
+    for (const boardEl of boardEls) {
+      const cells = Array.from(boardEl.querySelectorAll('[class*="_cell_"]'));
+      let answer = null;
+      for (let i = 0; i < cells.length; i += 5) {
+        const row = cells.slice(i, i + 5);
+        if (row.length < 5) break;
+        if (row.every((c) => classHas(c, "_green_"))) {
+          answer = row.map(cellLetter).join("");
+          break;
+        }
+      }
+      out.push(answer);
+    }
+    return out;
+  }
+
+  function readGuessesPlayed() {
+    // Find the board with the most rows — that one has all guesses played.
+    const boardsWrap = document.querySelector('[class*="_boards_"]');
+    if (!boardsWrap) return null;
+    const boardEls = Array.from(boardsWrap.querySelectorAll('[class*="_board_"]'));
+    let best = [];
+    for (const boardEl of boardEls) {
+      const cells = Array.from(boardEl.querySelectorAll('[class*="_cell_"]'));
+      const words = [];
+      for (let i = 0; i < cells.length; i += 5) {
+        const row = cells.slice(i, i + 5);
+        if (row.length < 5) break;
+        if (row.some((c) => detectColor(c) === null)) continue;
+        const w = row.map(cellLetter).join("");
+        if (/^[A-Z]{5}$/.test(w)) words.push(w);
+      }
+      if (words.length > best.length) best = words;
+    }
+    return best;
+  }
+
   function ensureOverlay() {
     let el = document.getElementById("dt-solver-overlay");
     if (el) return el;
@@ -119,11 +161,38 @@
         <div class="dt-pick" id="dt-pick"></div>
         <div class="dt-meta" id="dt-meta"></div>
         <div class="dt-alts" id="dt-alts"></div>
-        
+        <div class="dt-tools">
+          <button class="dt-btn" id="dt-copy">Copy answers</button>
+          <button class="dt-btn" id="dt-copy-guesses">Copy guesses</button>
+          <span class="dt-copy-status" id="dt-copy-status"></span>
+        </div>
       </div>
     `;
     document.body.appendChild(el);
 
+    const copyStatus = el.querySelector("#dt-copy-status");
+    async function copyText(text, statusFn) {
+      try {
+        await navigator.clipboard.writeText(text);
+        statusFn(true);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); statusFn(true); }
+        catch { statusFn(false); console.log("[dt-solver]", text); }
+        ta.remove();
+      }
+    }
+    el.querySelector("#dt-copy").addEventListener("click", async () => {
+      const ans = readAnswers();
+      if (!ans) { copyStatus.textContent = "no boards found"; return; }
+      const solved = ans.filter((a) => a).length;
+      const csv = ans.map((a) => a || "?????").join(",");
+      await copyText(csv, (ok) => copyStatus.textContent = ok ? `answers: ${solved}/32` : "copy failed");
+      setTimeout(() => (copyStatus.textContent = ""), 3000);
+    });
     el.querySelector("#dt-copy-guesses").addEventListener("click", async () => {
       const gs = readGuessesPlayed();
       if (!gs || !gs.length) { copyStatus.textContent = "no guesses found"; return; }
