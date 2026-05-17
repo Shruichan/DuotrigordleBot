@@ -1,33 +1,283 @@
 #include "simulator.hpp"
 #include "strategy.hpp"
+#include "strategy_beam.hpp"
+#include "strategy_endgame.hpp"
 #include "wordlists.hpp"
 
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <iomanip>
+#include <memory>
+
+namespace dt { extern std::atomic<int> g_beam_triggered; extern std::atomic<int> g_beam_skipped; }
+
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <random>
 #include <string>
+
+// 5x26 letter-position incidence + (|C|/2653) + solved-flag per board
+constexpr int FEATURES_PER_BOARD = 5 * 26 + 2;
+constexpr int FEATURE_DIM = dt::NUM_BOARDS * FEATURES_PER_BOARD;
+
+static void compute_features(const dt::Wordlists& w, const dt::GameState& state, float* out) {
+    std::fill(out, out + FEATURE_DIM, 0.0f);
+    for (int b = 0; b < dt::NUM_BOARDS; ++b) {
+        float* f = out + b * FEATURES_PER_BOARD;
+        const auto& board = state.boards[b];
+        if (board.solved) {
+            f[FEATURES_PER_BOARD - 1] = 1.0f;
+            continue;
+        }
+        f[FEATURES_PER_BOARD - 2] = static_cast<float>(board.candidates.size()) / 2653.0f;
+        for (dt::WordIdx sol_idx : board.candidates) {
+            std::string_view word = w.solution(sol_idx);
+            for (int p = 0; p < 5; ++p) {
+                int letter = word[p] - 'A';
+                f[p * 26 + letter] = 1.0f;
+            }
+        }
+    }
+}
 
 int main(int argc, char** argv) {
     int num_games = 200;
     uint64_t seed = 42;
     std::string pool = "default";
     double alpha = 1.0;
+    std::string strat_name = "greedy";
+    int beam_k = 8;
+    int beam_samples = 3;
+    int endgame_threshold = 25;
+    bool distinct_answers = true;
+    bool use_distinct_constraint = true;
+    std::string answers_csv;
+    bool trace_mode = false;
+    std::string export_dir;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "-n" && i + 1 < argc) num_games = std::atoi(argv[++i]);
         else if (a == "-s" && i + 1 < argc) seed = std::strtoull(argv[++i], nullptr, 10);
         else if (a == "-p" && i + 1 < argc) pool = argv[++i];
         else if (a == "-a" && i + 1 < argc) alpha = std::atof(argv[++i]);
-        else { std::cerr << "usage: dt_bench [-n games] [-s seed] [-p pool] [-a alpha]\n"; return 1; }
+        else if (a == "-S" && i + 1 < argc) strat_name = argv[++i];
+        else if (a == "-k" && i + 1 < argc) beam_k = std::atoi(argv[++i]);
+        else if (a == "-N" && i + 1 < argc) beam_samples = std::atoi(argv[++i]);
+        else if (a == "--no-distinct-answers") distinct_answers = false;
+        else if (a == "--no-distinct-constraint") use_distinct_constraint = false;
+        else if (a == "--answers" && i + 1 < argc) answers_csv = argv[++i];
+        else if (a == "--trace") trace_mode = true;
+        else if (a == "-T" && i + 1 < argc) endgame_threshold = std::atoi(argv[++i]);
+        else if (a == "--export-features" && i + 1 < argc) export_dir = argv[++i];
+        else if (a == "--dump-feedback-table" && i + 1 < argc) {
+            std::ofstream out(argv[++i], std::ios::binary);
+            // Dummy load to access feedback table
+            dt::Wordlists wl(DT_DATA_DIR, pool);
+            // Feedback table is internal; reconstruct via public iface
+            std::vector<dt::Pattern> tbl(wl.num_guesses() * wl.num_solutions());
+            for (size_t g = 0; g < wl.num_guesses(); ++g) {
+                const dt::Pattern* row = wl.feedback_row(static_cast<dt::WordIdx>(g));
+                std::copy(row, row + wl.num_solutions(),
+                          tbl.data() + g * wl.num_solutions());
+            }
+            out.write(reinterpret_cast<const char*>(tbl.data()), tbl.size());
+            std::cerr << "Dumped " << tbl.size() << " bytes (" << wl.num_guesses() << "x"
+                      << wl.num_solutions() << ") to " << argv[i] << "\n";
+            return 0;
+        }
+        else {
+            std::cerr << "usage: dt_bench [-n games] [-s seed] [-p pool] [-a alpha]"
+                      << " [-S greedy|beam] [-k beam_k] [-N beam_samples]"
+                      << " [--no-distinct-answers] [--no-distinct-constraint]"
+                      << " [--answers W1,W2,...,W32] [--trace]\n";
+            return 1;
+        }
     }
+
     dt::Wordlists w(DT_DATA_DIR, pool);
-    dt::GreedyStrategy strat(w, alpha);
-    std::cerr << "Running " << num_games << " games...\n";
-    auto stats = dt::run_benchmark(w, strat, num_games, seed);
-    std::cout << "\nGames: " << stats.games << "  Solved: " << stats.solved << "\n";
+    std::unique_ptr<dt::Strategy> strat;
+    if (strat_name == "greedy") {
+        strat = std::make_unique<dt::GreedyStrategy>(w, alpha);
+    } else if (strat_name == "beam") {
+        strat = std::make_unique<dt::BeamStrategy>(w, beam_k, beam_samples, alpha);
+        std::cerr << "beam k=" << beam_k << " samples=" << beam_samples << "\n";
+    } else if (strat_name == "endgame") {
+        strat = std::make_unique<dt::EndgameStrategy>(w, endgame_threshold, alpha);
+        std::cerr << "endgame threshold=" << endgame_threshold << "\n";
+    } else {
+        std::cerr << "unknown strategy: " << strat_name << "\n";
+        return 1;
+    }
+    std::cerr << "alpha (answer_bonus) = " << alpha << "\n";
+
+    if (!answers_csv.empty()) {
+        std::array<dt::WordIdx, dt::NUM_BOARDS> answers{};
+        size_t pos = 0; int idx = 0;
+        while (pos <= answers_csv.size() && idx < dt::NUM_BOARDS) {
+            size_t comma = answers_csv.find(',', pos);
+            std::string word = answers_csv.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+            std::transform(word.begin(), word.end(), word.begin(), ::toupper);
+            auto si = w.solution_index(word);
+            if (!si) {
+                std::cerr << "answer #" << (idx + 1) << " '" << word << "' is not in solution pool '" << pool << "'\n";
+                return 1;
+            }
+            answers[idx++] = *si;
+            if (comma == std::string::npos) break;
+            pos = comma + 1;
+        }
+        if (idx != dt::NUM_BOARDS) {
+            std::cerr << "need exactly " << dt::NUM_BOARDS << " answers, got " << idx << "\n";
+            return 1;
+        }
+        std::cerr << "Replaying single game with provided answers...\n";
+        auto r = dt::run_one_game(w, *strat, answers, 50, use_distinct_constraint);
+        std::cout << "Game result: " << (r.all_solved ? "SOLVED" : "FAILED")
+                  << " in " << r.guesses_used << " guesses, "
+                  << r.boards_solved << "/" << dt::NUM_BOARDS << " boards solved\n";
+        if (trace_mode || !r.all_solved) {
+            std::cout << "\nGuess history:\n";
+            // Replay to show each guess and which boards it solved
+            dt::GameState s = dt::GameState::fresh(w);
+            for (size_t i = 0; i < r.guess_history.size(); ++i) {
+                dt::WordIdx g = r.guess_history[i];
+                int solved_before = dt::NUM_BOARDS - s.active_boards();
+                std::array<dt::Pattern, dt::NUM_BOARDS> pats{};
+                for (int b = 0; b < dt::NUM_BOARDS; ++b) {
+                    pats[b] = s.boards[b].solved ? dt::PATTERN_ALL_GREEN : w.feedback(g, answers[b]);
+                }
+                s.apply_guess(w, g, pats, use_distinct_constraint);
+                int solved_now = dt::NUM_BOARDS - s.active_boards();
+                std::cout << "  " << std::setw(2) << (i + 1) << ". " << w.guess(g)
+                          << "  active=" << std::setw(2) << s.active_boards()
+                          << "  +" << (solved_now - solved_before) << " solved this turn\n";
+            }
+        }
+        return r.all_solved ? 0 : 2;
+    }
+
+    if (!export_dir.empty()) {
+        namespace fs = std::filesystem;
+        fs::create_directories(export_dir);
+        std::ofstream feat_file(fs::path(export_dir) / "features.bin", std::ios::binary);
+        std::ofstream target_file(fs::path(export_dir) / "targets.bin", std::ios::binary);
+        if (!feat_file || !target_file) {
+            std::cerr << "Cannot open export files in " << export_dir << "\n";
+            return 1;
+        }
+
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<dt::WordIdx> pick(0, static_cast<dt::WordIdx>(w.num_solutions() - 1));
+        std::vector<uint8_t> picked_buf(w.num_solutions(), 0);
+
+        std::vector<float> feat_buf(FEATURE_DIM);
+        long long total_examples = 0;
+        long long games_solved = 0;
+        long long sum_guesses = 0;
+
+        std::cerr << "Exporting features for " << num_games << " games to " << export_dir
+                  << " (feature_dim=" << FEATURE_DIM << ")...\n";
+        auto t_start = std::chrono::steady_clock::now();
+
+        for (int g = 0; g < num_games; ++g) {
+            std::array<dt::WordIdx, dt::NUM_BOARDS> answers{};
+            std::fill(picked_buf.begin(), picked_buf.end(), 0);
+            for (auto& a : answers) {
+                dt::WordIdx x;
+                do { x = pick(rng); } while (picked_buf[x]);
+                picked_buf[x] = 1;
+                a = x;
+            }
+
+            dt::GameState state = dt::GameState::fresh(w);
+            std::vector<std::vector<float>> game_features;
+            game_features.reserve(40);
+
+            while (state.guesses_used < 50 && !state.game_over()) {
+                std::vector<float> ft(FEATURE_DIM);
+                compute_features(w, state, ft.data());
+                game_features.push_back(std::move(ft));
+
+                dt::WordIdx gi = strat->choose_guess(state);
+                std::array<dt::Pattern, dt::NUM_BOARDS> pats{};
+                for (int b = 0; b < dt::NUM_BOARDS; ++b) {
+                    pats[b] = state.boards[b].solved
+                        ? dt::PATTERN_ALL_GREEN
+                        : w.feedback(gi, answers[b]);
+                }
+                state.apply_guess(w, gi, pats, use_distinct_constraint);
+            }
+
+            if (state.game_over()) {
+                int total = state.guesses_used;
+                ++games_solved;
+                sum_guesses += total;
+                for (size_t t = 0; t < game_features.size(); ++t) {
+                    float remaining = static_cast<float>(total) - static_cast<float>(t);
+                    feat_file.write(reinterpret_cast<const char*>(game_features[t].data()),
+                                    FEATURE_DIM * sizeof(float));
+                    target_file.write(reinterpret_cast<const char*>(&remaining), sizeof(float));
+                    ++total_examples;
+                }
+            }
+
+            if ((g + 1) % 200 == 0) {
+                auto el = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - t_start).count();
+                std::cerr << "  [" << (g + 1) << "/" << num_games << "] "
+                          << total_examples << " examples, mean="
+                          << (games_solved ? double(sum_guesses) / games_solved : 0.0)
+                          << ", " << std::fixed << std::setprecision(1) << el << "s\n";
+            }
+        }
+
+        std::ofstream meta(fs::path(export_dir) / "meta.json");
+        meta << "{\"num_examples\":" << total_examples
+             << ",\"feature_dim\":" << FEATURE_DIM
+             << ",\"games_solved\":" << games_solved
+             << ",\"mean_guesses\":" << (games_solved ? double(sum_guesses) / games_solved : 0.0)
+             << "}\n";
+        std::cerr << "Done. Wrote " << total_examples << " examples.\n";
+        return 0;
+    }
+
+    std::cerr << "Running " << num_games << " games (seed=" << seed << ", pool=" << pool
+              << ", strategy=" << strat->name() << ")...\n";
+    auto stats = dt::run_benchmark(w, *strat, num_games, seed, 50, true,
+                                   distinct_answers, use_distinct_constraint);
+    std::cerr << "distinct_answers=" << distinct_answers
+              << " use_distinct_constraint=" << use_distinct_constraint << "\n";
+
+    std::cout << "\n=== Benchmark Results ===\n";
+    std::cout << "Strategy:        " << strat->name() << "\n";
+    std::cout << "Games:           " << stats.games << "\n";
+    std::cout << "Solved:          " << stats.solved
+              << " (" << std::fixed << std::setprecision(1)
+              << (100.0 * stats.solved / stats.games) << "%)\n";
     if (stats.solved) {
-        std::cout << "Mean: " << std::setprecision(2) << stats.mean_guesses
-                  << "  Min/Max: " << stats.min_guesses << "/" << stats.max_guesses << "\n";
+        std::cout << "Mean guesses:    " << std::setprecision(2) << stats.mean_guesses << "\n";
+        std::cout << "Min / Max:       " << stats.min_guesses << " / " << stats.max_guesses << "\n";
+        std::cout << "Pct <=37 (Daily): " << std::setprecision(1) << stats.pct_under_37 << "%\n";
+        std::cout << "Pct <=32 (Perfect): " << stats.pct_under_32 << "%\n";
+
+        std::cout << "\nDistribution (guesses used -> count):\n";
+        for (size_t i = 0; i < stats.guess_distribution.size() - 1; ++i) {
+            if (stats.guess_distribution[i] > 0) {
+                std::cout << "  " << std::setw(3) << i << ": " << stats.guess_distribution[i] << "\n";
+            }
+        }
+        if (stats.guess_distribution.back() > 0) {
+            std::cout << "  FAIL: " << stats.guess_distribution.back() << "\n";
+        }
+    }
+    if (strat_name == "beam") {
+        std::cout << "\nBeam triggered: " << dt::g_beam_triggered.load()
+                  << "  Beam skipped (used greedy): " << dt::g_beam_skipped.load() << "\n";
     }
     return 0;
 }
