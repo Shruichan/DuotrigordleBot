@@ -1,3 +1,5 @@
+# NOTE: value-net beam ties greedy on bench — keeping for reference, not used live.
+
 #!/usr/bin/env python3
 """Value-net-guided beam search for Duotrigordle.
 
