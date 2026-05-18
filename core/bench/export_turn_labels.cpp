@@ -11,6 +11,7 @@
 //   features.bin     : float32 [N x FEATURE_DIM]
 //   candidates.bin   : int32   [N x K]
 //   totals.bin       : float32 [N x K]
+//   cand_extras.bin  : float32 [N x K x 3]   (greedy_score, boards_count, expected_solves)
 //   meta.json
 //
 // Built as a separate binary (dt_export_labels) to keep main bench clean.
@@ -90,6 +91,7 @@ int main(int argc, char** argv) {
     std::ofstream feat_file(fs::path(out_dir) / "features.bin", std::ios::binary);
     std::ofstream cand_file(fs::path(out_dir) / "candidates.bin", std::ios::binary);
     std::ofstream tot_file(fs::path(out_dir) / "totals.bin", std::ios::binary);
+    std::ofstream ext_file(fs::path(out_dir) / "cand_extras.bin", std::ios::binary);
 
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<dt::WordIdx> pick(0, static_cast<dt::WordIdx>(w.num_solutions() - 1));
@@ -136,12 +138,53 @@ int main(int argc, char** argv) {
         auto top_k = greedy.top_k_guesses(state, K);
         if (static_cast<int>(top_k.size()) < K) continue;
 
+        // Per-candidate extras: greedy_score, boards_count, expected_solves
+        // Compute via reimplementing scoring locally to expose components.
+        std::vector<int> active;
+        for (int b = 0; b < dt::NUM_BOARDS; ++b) {
+            if (!state.boards[b].solved && !state.boards[b].candidates.empty()) {
+                active.push_back(b);
+            }
+        }
+        std::vector<float> expected_solves(w.num_solutions(), 0.0f);
+        std::vector<int> boards_count_per_sol(w.num_solutions(), 0);
+        for (int b : active) {
+            const auto& cands = state.boards[b].candidates;
+            const float inv = 1.0f / static_cast<float>(cands.size());
+            for (dt::WordIdx s : cands) {
+                expected_solves[s] += inv;
+                boards_count_per_sol[s] += 1;
+            }
+        }
+
+        // For each candidate, branch: apply it, then play out with greedy, record total
         std::vector<float> totals(K);
         std::vector<int32_t> cand_idx(K);
+        std::vector<float> cand_extras(K * 3);
         for (int c = 0; c < K; ++c) {
             dt::WordIdx gi = top_k[c];
             cand_idx[c] = static_cast<int32_t>(gi);
 
+            // Compute greedy_score, boards_count, expected_solves for this candidate
+            int32_t sol = w.guess_to_sol(gi);
+            const dt::Pattern* row = w.feedback_row(gi);
+            float entropy_sum = 0.0f;
+            for (int b : active) {
+                const auto& cs = state.boards[b].candidates;
+                if (cs.empty()) continue;
+                std::array<int, dt::NUM_PATTERNS> count{};
+                for (dt::WordIdx s : cs) count[row[s]] += 1;
+                const float n = static_cast<float>(cs.size());
+                for (int q : count) {
+                    if (q == 0) continue;
+                    const float p = q / n;
+                    entropy_sum -= p * std::log2(p);
+                }
+            }
+            float bonus = (sol >= 0) ? expected_solves[sol] : 0.0f;  // alpha=1.0
+            cand_extras[c * 3 + 0] = entropy_sum + bonus;  // greedy_score
+            cand_extras[c * 3 + 1] = (sol >= 0) ? static_cast<float>(boards_count_per_sol[sol]) : 0.0f;
+            cand_extras[c * 3 + 2] = bonus;  // expected_solves
 
             dt::GameState branch = state;
             std::array<dt::Pattern, dt::NUM_BOARDS> pats{};
@@ -170,6 +213,7 @@ int main(int argc, char** argv) {
         feat_file.write(reinterpret_cast<const char*>(feats.data()), FEATURE_DIM * sizeof(float));
         cand_file.write(reinterpret_cast<const char*>(cand_idx.data()), K * sizeof(int32_t));
         tot_file.write(reinterpret_cast<const char*>(totals.data()), K * sizeof(float));
+        ext_file.write(reinterpret_cast<const char*>(cand_extras.data()), K * 3 * sizeof(float));
         ++ok_examples;
 
         if ((g + 1) % 50 == 0) {

@@ -42,7 +42,8 @@ def load_word_features():
 class TurnSpecialist(nn.Module):
     """State encoder + candidate encoder + cross MLP scoring candidate-conditional value.
 
-    Candidate features: word one-hot (130) + scalar rank/K.
+    Candidate features: word one-hot (130) + scalar rank/K + optional extras (greedy_score, boards_count, expected_solves).
+    cand_feat_dim is set at construction time based on data.
     """
 
     K_MAX = 100
@@ -134,7 +135,15 @@ def main():
     cand_word = word_feats_all[cand_idx]  # (N, K, 130)
     ranks = np.tile(np.arange(K, dtype=np.float32) / K, (N, 1)).reshape(N, K, 1)
     parts = [cand_word, ranks]
-
+    if meta.get("has_cand_extras"):
+        extras = np.fromfile(args.data / "cand_extras.bin", dtype=np.float32).reshape(N, K, 3)
+        # Normalize: greedy_score is up to ~200, boards_count up to 32, expected_solves bounded by 1
+        extras_norm = extras.copy()
+        extras_norm[:, :, 0] /= 200.0
+        extras_norm[:, :, 1] /= 32.0
+        # expected_solves already bounded
+        parts.append(extras_norm)
+        print(f"Using extras (dim 3); cand_feat_dim = {sum(p.shape[-1] for p in parts)}")
     cand_feats = np.concatenate(parts, axis=-1)
     cand_feat_dim = cand_feats.shape[-1]
 
