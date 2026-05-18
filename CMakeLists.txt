@@ -47,3 +47,6 @@ target_link_libraries(dt_cli PRIVATE dt_core)
 find_package(nlohmann_json REQUIRED)
 add_executable(dt_worker core/server/worker_main.cpp)
 target_link_libraries(dt_worker PRIVATE dt_core nlohmann_json::nlohmann_json)
+
+add_executable(dt_export_labels core/bench/export_turn_labels.cpp)
+target_link_libraries(dt_export_labels PRIVATE dt_core)
