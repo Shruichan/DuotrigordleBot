@@ -1,4 +1,4 @@
-const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 1.0 };
+const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 150 };
 
 const $ = (id) => document.getElementById(id);
 
@@ -8,7 +8,7 @@ async function load() {
   $("pool").value = stored.pool;
   $("topk").value = stored.topk;
   $("alpha").value = stored.alpha;
-  $("alpha-val").textContent = Number(stored.alpha).toFixed(1);
+  $("alpha-val").textContent = String(Math.round(Number(stored.alpha)));
 }
 
 function save() {
@@ -16,7 +16,7 @@ function save() {
     mode: $("mode").value,
     pool: $("pool").value,
     topk: Math.max(1, Math.min(20, parseInt($("topk").value, 10) || 5)),
-    alpha: parseFloat($("alpha").value),
+    alpha: parseFloat($("alpha").value) || 150,
   };
   chrome.storage.local.set(settings);
 }
@@ -25,7 +25,7 @@ for (const id of ["mode", "pool", "topk", "alpha"]) {
   document.addEventListener("DOMContentLoaded", () => {
     $(id).addEventListener("change", save);
     $(id).addEventListener("input", () => {
-      if (id === "alpha") $("alpha-val").textContent = Number($("alpha").value).toFixed(1);
+      if (id === "alpha") $("alpha-val").textContent = String(Math.round(Number($("alpha").value)));
       save();
     });
   });

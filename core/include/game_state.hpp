@@ -64,12 +64,30 @@ struct GameState {
         }
         for (int i = 0; i < NUM_BOARDS; ++i) boards[i].apply(w, g, patterns[i]);
         if (use_distinct_constraint) {
-            for (int i = 0; i < NUM_BOARDS; ++i) {
-                if (boards[i].solved) continue;
-                auto& cs = boards[i].candidates;
-                auto it = cs.begin();
-                for (auto s : cs) if (!answer_used[s]) *it++ = s;
-                cs.erase(it, cs.end());
+            // Propagate the distinct-answer constraint iteratively. Any unsolved board
+            // with |C|=1 has its unique candidate fixed (it WILL be that board's
+            // answer when we play that word). Mark it as used and remove from other
+            // boards. That may create new |C|=1 boards — repeat until quiescent.
+            bool changed = true;
+            while (changed) {
+                changed = false;
+                for (int i = 0; i < NUM_BOARDS; ++i) {
+                    if (boards[i].solved || boards[i].candidates.size() != 1) continue;
+                    WordIdx s = boards[i].candidates[0];
+                    if (!answer_used[s]) { answer_used[s] = 1; changed = true; }
+                }
+                for (int i = 0; i < NUM_BOARDS; ++i) {
+                    if (boards[i].solved) continue;
+                    // Skip forced boards — they're the SOURCE of the used answer and
+                    // must keep their unique candidate.
+                    if (boards[i].candidates.size() == 1) continue;
+                    auto& cs = boards[i].candidates;
+                    size_t old = cs.size();
+                    auto it = cs.begin();
+                    for (auto s : cs) if (!answer_used[s]) *it++ = s;
+                    cs.erase(it, cs.end());
+                    if (cs.size() != old) changed = true;
+                }
             }
         }
         guess_history.push_back(g);

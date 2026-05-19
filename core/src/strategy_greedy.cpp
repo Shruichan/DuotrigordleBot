@@ -38,13 +38,18 @@ GuessSetup build_setup(const Wordlists& w, const GameState& state) {
         const auto& b = state.boards[i];
         if (!b.solved && !b.candidates.empty()) gs.active.push_back(i);
     }
-    gs.expected_solves.assign(w.num_solutions(), 0.0f);
+    // Probability of solving at least one board if this word is played.
+    // Under uniform per-board prior: 1 - prod_{b: s in C_b}(1 - 1/|C_b|).
+    // Build as: track prod_{b: s in C_b}(1 - 1/|C_b|), then take 1 - that.
+    // (For most words s is only in a few boards, so this is sparse.)
+    gs.expected_solves.assign(w.num_solutions(), 1.0f);
     for (int b : gs.active) {
         const auto& cands = state.boards[b].candidates;
         if (cands.empty()) continue;
-        const float inv = 1.0f / static_cast<float>(cands.size());
-        for (WordIdx s : cands) gs.expected_solves[s] += inv;
+        const float keep = 1.0f - 1.0f / static_cast<float>(cands.size());
+        for (WordIdx s : cands) gs.expected_solves[s] *= keep;
     }
+    for (float& v : gs.expected_solves) v = 1.0f - v;
     for (int b : gs.active) {
         if (state.boards[b].candidates.size() == 1) {
             gs.forced.push_back(w.sol_to_guess(state.boards[b].candidates[0]));

@@ -1,5 +1,5 @@
 const SERVER_BASE = "http://127.0.0.1:8765";
-const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 1.0 };
+const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 150 };
 
 function postJson(url, payload) {
   return fetch(url, {

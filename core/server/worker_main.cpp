@@ -77,12 +77,13 @@ json process_request(const dt::Wordlists& w, const json& req) {
     }
 
     int top_k = req.value("top_k", 5);
-    double alpha = req.value("alpha", 1.0);
+    // Default alpha tuned via 1000-game bench: 150 gives the sweet spot for
+    // "most rounds at 33, almost never above 34" (mean 33.80, only 2.8% at 35).
+    double alpha = req.value("alpha", 150.0);
     std::string mode = req.value("mode", "auto");
     // Perfect mode: maximize P(solve at least one board each turn). Push alpha
-    // very high so expected_solves dominates raw entropy in the scoring; entropy
-    // then only breaks ties. Turn 1 is unaffected (expected_solves is uniform
-    // across all candidate-only words at fresh state).
+    // very high so expected_solves dominates raw entropy. Trades a bit of tail
+    // (more 35s) for more 33s and the occasional 32 (Perfect Challenge).
     if (mode == "perfect") {
         alpha = req.value("perfect_alpha", 1000.0);
     }
