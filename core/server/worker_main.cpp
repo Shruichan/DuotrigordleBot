@@ -79,6 +79,13 @@ json process_request(const dt::Wordlists& w, const json& req) {
     int top_k = req.value("top_k", 5);
     double alpha = req.value("alpha", 1.0);
     std::string mode = req.value("mode", "auto");
+    // Perfect mode: maximize P(solve at least one board each turn). Push alpha
+    // very high so expected_solves dominates raw entropy in the scoring; entropy
+    // then only breaks ties. Turn 1 is unaffected (expected_solves is uniform
+    // across all candidate-only words at fresh state).
+    if (mode == "perfect") {
+        alpha = req.value("perfect_alpha", 1000.0);
+    }
 
     dt::GameState state = dt::GameState::fresh(w);
 
