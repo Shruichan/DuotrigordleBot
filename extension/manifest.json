@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Duotrigordle Solver",
+  "name": "Duotrigordle Bot",
   "version": "0.1.0",
   "description": "Suggests near-optimal guesses while playing Duotrigordle. Requires a local solver service.",
   "permissions": ["storage"],
@@ -21,7 +21,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Duotrigordle Solver",
+    "default_title": "Duotrigordle Bot",
     "default_popup": "popup.html"
   }
 }

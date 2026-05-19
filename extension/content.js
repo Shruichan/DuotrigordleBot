@@ -153,7 +153,7 @@
     el.id = "dt-solver-overlay";
     el.innerHTML = `
       <div class="dt-bar">
-        <span class="dt-title">Duotrigordle Solver</span>
+        <span class="dt-title">Duotrigordle Bot</span>
         <span class="dt-status" id="dt-status">…</span>
         <button class="dt-min" id="dt-min" title="Minimize">_</button>
       </div>
@@ -164,6 +164,7 @@
         <div class="dt-tools">
           <button class="dt-btn" id="dt-copy">Copy answers</button>
           <button class="dt-btn" id="dt-copy-guesses">Copy guesses</button>
+          <button class="dt-btn" id="dt-review">Review</button>
           <span class="dt-copy-status" id="dt-copy-status"></span>
         </div>
       </div>
@@ -199,6 +200,18 @@
       const csv = gs.join(",");
       await copyText(csv, (ok) => copyStatus.textContent = ok ? `guesses: ${gs.length}` : "copy failed");
       setTimeout(() => (copyStatus.textContent = ""), 3000);
+    });
+    el.querySelector("#dt-review").addEventListener("click", async () => {
+      const state = readState();
+      if (!state) { copyStatus.textContent = "no board state"; return; }
+      copyStatus.textContent = "reviewing…";
+      try {
+        const resp = await chrome.runtime.sendMessage({ type: "review", state });
+        if (resp && resp.ok) { renderReview(resp.data); copyStatus.textContent = ""; }
+        else { copyStatus.textContent = (resp && resp.error || "review failed").slice(0, 60); }
+      } catch (e) {
+        copyStatus.textContent = String(e).slice(0, 60);
+      }
     });
 
     // Drag the bar
@@ -259,6 +272,56 @@
         `<span class="dt-altmeta">${(s.could_solve || []).length} solve${(s.could_solve||[]).length===1?"":"s"}</span>`;
       alts.appendChild(row);
     }
+  }
+
+  function renderReview(data) {
+    let modal = document.getElementById("dt-review-modal");
+    if (modal) modal.remove();
+    modal = document.createElement("div");
+    modal.id = "dt-review-modal";
+    const s = data.summary || {};
+    const turns = data.turns || [];
+    const skillColor = (v) => v >= 95 ? "var(--dt-green)" : v >= 85 ? "var(--dt-yellow)" : "var(--dt-red)";
+    const luckColor = (v) => Math.abs(v) < 3 ? "inherit" : (v > 0 ? "var(--dt-green)" : "var(--dt-red)");
+    const rows = turns.map((t) => `
+      <tr>
+        <td class="dt-r-num">${t.turn}</td>
+        <td class="dt-r-w">${t.guess}</td>
+        <td class="dt-r-pct" style="color:${skillColor(t.skill)}">${t.skill.toFixed(1)}%</td>
+        <td class="dt-r-pct" style="color:${luckColor(t.luck)}">${t.luck >= 0 ? '+' : ''}${t.luck.toFixed(1)}%</td>
+        <td class="dt-r-num">${t.boards_solved_this_turn}</td>
+        <td class="dt-r-w ${t.decision_matched ? '' : 'dt-r-miss'}">${t.bot_choice}</td>
+        <td class="dt-r-match">${t.decision_matched ? '✓' : '✗'}</td>
+      </tr>`).join("");
+    modal.innerHTML = `
+      <div class="dt-review-card">
+        <div class="dt-review-head">
+          <span class="dt-review-title">Game Review</span>
+          <button class="dt-btn" id="dt-review-close">close</button>
+        </div>
+        <div class="dt-review-summary">
+          <div><span>guesses</span><b>${s.total_guesses}</b></div>
+          <div><span>solved</span><b>${s.boards_solved}/32</b></div>
+          <div><span>avg skill</span><b style="color:${skillColor(s.avg_skill || 0)}">${(s.avg_skill || 0).toFixed(1)}%</b></div>
+          <div><span>avg luck</span><b style="color:${luckColor(s.avg_luck || 0)}">${(s.avg_luck || 0) >= 0 ? '+' : ''}${(s.avg_luck || 0).toFixed(1)}%</b></div>
+          <div><span>decisions matched</span><b>${s.decisions_matched}/${s.decisions_total}</b></div>
+        </div>
+        <table class="dt-review-table">
+          <thead><tr>
+            <th>#</th><th>played</th><th>skill</th><th>luck</th><th>+solved</th><th>bot would play</th><th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="dt-review-help">
+          <b>skill</b>: information extracted vs the entropy-max word.
+          <b>luck</b>: actual remaining candidates vs expected (+ = good).
+          <b>bot would play</b>: the bot's strategic pick (forced-move aware);
+          mismatch ✗ means a non-info reason to play differently.
+        </p>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector("#dt-review-close").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
   }
 
   function renderError(msg) {

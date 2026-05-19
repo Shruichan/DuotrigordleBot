@@ -131,3 +131,120 @@
   font-size: 10px;
   color: hsl(148, 60%, 60%);
 }
+
+/* Review modal */
+#dt-review-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Rubik, system-ui, sans-serif;
+  --dt-green: hsl(148, 59%, 60%);
+  --dt-yellow: hsl(45, 80%, 65%);
+  --dt-red: hsl(0, 80%, 65%);
+}
+#dt-review-modal .dt-review-card {
+  background: hsl(240, 10%, 12%);
+  color: hsl(240, 10%, 92%);
+  border: 1px solid hsl(240, 10%, 24%);
+  border-radius: 8px;
+  width: min(820px, 90vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+#dt-review-modal .dt-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: hsl(240, 10%, 18%);
+  border-bottom: 1px solid hsl(240, 10%, 24%);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+#dt-review-modal .dt-review-title { font-weight: 600; font-size: 14px; }
+#dt-review-modal .dt-btn {
+  background: hsl(240, 10%, 18%);
+  color: hsl(240, 10%, 90%);
+  border: 1px solid hsl(240, 10%, 28%);
+  border-radius: 3px;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+#dt-review-modal .dt-btn:hover { background: hsl(240, 10%, 22%); }
+#dt-review-modal .dt-review-summary {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid hsl(240, 10%, 22%);
+}
+#dt-review-modal .dt-review-summary > div {
+  display: flex; flex-direction: column; align-items: center;
+}
+#dt-review-modal .dt-review-summary span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: hsl(240, 10%, 60%);
+}
+#dt-review-modal .dt-review-summary b {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+#dt-review-modal .dt-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-y: auto;
+  display: block;
+  max-height: 50vh;
+}
+#dt-review-modal .dt-review-table thead {
+  position: sticky;
+  top: 0;
+  background: hsl(240, 10%, 14%);
+}
+#dt-review-modal .dt-review-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: hsl(240, 10%, 65%);
+  padding: 6px 10px;
+  border-bottom: 1px solid hsl(240, 10%, 22%);
+}
+#dt-review-modal .dt-review-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid hsl(240, 10%, 18%);
+  font-size: 12px;
+}
+#dt-review-modal .dt-review-table .dt-r-num { text-align: right; }
+#dt-review-modal .dt-review-table .dt-r-w {
+  font-family: "Roboto Mono", monospace;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+#dt-review-modal .dt-review-table .dt-r-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#dt-review-modal .dt-review-table .dt-r-match { text-align: center; font-weight: 700; }
+#dt-review-modal .dt-r-miss { color: hsl(45, 80%, 65%); }
+#dt-review-modal .dt-review-help {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: hsl(240, 10%, 60%);
+  line-height: 1.5;
+  border-top: 1px solid hsl(240, 10%, 22%);
+  margin: 0;
+}
+#dt-review-modal .dt-review-help b { color: hsl(240, 10%, 80%); }
