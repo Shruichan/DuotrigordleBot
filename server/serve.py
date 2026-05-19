@@ -85,7 +85,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path != "/suggest":
+        if self.path not in ("/suggest", "/review"):
             self._send_json(404, {"error": "unknown endpoint"})
             return
         n = int(self.headers.get("Content-Length", "0"))
@@ -95,6 +95,8 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError as e:
             self._send_json(400, {"error": f"invalid json: {e}"})
             return
+        if self.path == "/review":
+            payload["command"] = "review"
         try:
             resp = self.worker.call(payload)
         except Exception as e:
