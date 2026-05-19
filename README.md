@@ -1,7 +1,6 @@
 # DuotrigordleBot
 
-Solver bot for [duotrigordle.com](https://duotrigordle.com) — 32 simultaneous
-wordles, 37 guesses, distinct answers.
+Solver bot for [duotrigordle.com](https://duotrigordle.com) 
 
 ## Layout
 
@@ -38,11 +37,10 @@ Load `extension/` as an unpacked Chrome extension, open duotrigordle.com.
 
 Greedy with answer-bonus, 500-game realistic (distinct-answer) bench:
 
-- 100% solve rate
+- 100% solve rate (under the Daily 37-guess threshold)
 - Mean: ~33.8 guesses
 - Range: 33–35
-- 100% under the Daily 37-guess threshold
 
-Headroom over greedy at turn 2 is ~0.35 guesses (analyzed via hindsight-optimal
-labels); the turn-2 specialist (ml/train_turn2.py) captures a small slice of
+
+Headroom over greedy at turn 2 is ~0.35 guesses, the turn-2 specialist (ml/train_turn2.py) captures a small slice of
 that. Late game is essentially optimal under greedy.
