@@ -77,9 +77,10 @@ json process_request(const dt::Wordlists& w, const json& req) {
     }
 
     int top_k = req.value("top_k", 5);
-    // Default alpha tuned via 1000-game bench: 150 gives the sweet spot for
-    // "most rounds at 33, almost never above 34" (mean 33.80, only 2.8% at 35).
-    double alpha = req.value("alpha", 150.0);
+    // Default alpha tuned via 2000-game opener×alpha sweep. α=300 with the
+    // hardcoded LITRE opener (below) gives mean 33.61, 42% of games at 33,
+    // and only 4.25% at 35+ — best tradeoff for "more 33s, almost no 35s".
+    double alpha = req.value("alpha", 300.0);
     std::string mode = req.value("mode", "auto");
     // Perfect mode: maximize P(solve at least one board each turn). Push alpha
     // very high so expected_solves dominates raw entropy. Trades a bit of tail
@@ -185,6 +186,19 @@ json process_request(const dt::Wordlists& w, const json& req) {
         ? std::vector<dt::WordIdx>{}
         : strat.top_k_guesses(state, top_k, pool);
 
+    // Forced opener at fresh state: LITRE wins the 2000-game opener×alpha sweep.
+    // Mean 33.61, 42.3% at 33, 4.25% at 35+ — the best single-config combo for
+    // "majority 33s, near-zero 35s" while still scoring an occasional Perfect.
+    if (state.guesses_used == 0 && !top.empty()) {
+        auto litre = w.guess_index("LITRE");
+        if (litre) {
+            auto it = std::find(top.begin(), top.end(), *litre);
+            if (it != top.end()) top.erase(it);
+            top.insert(top.begin(), *litre);
+            if (static_cast<int>(top.size()) > top_k) top.resize(top_k);
+        }
+    }
+
     json suggestions = json::array();
     for (dt::WordIdx g : top) {
         json sug;
@@ -235,7 +249,7 @@ json process_review(const dt::Wordlists& w, const json& req) {
     if (boards.size() != dt::NUM_BOARDS) {
         return error("'boards' must have exactly 32 entries");
     }
-    const double alpha = req.value("alpha", 150.0);
+    const double alpha = req.value("alpha", 300.0);
 
     int max_turns = 0;
     for (const auto& bj : boards) {

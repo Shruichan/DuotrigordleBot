@@ -1,4 +1,4 @@
-const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 150 };
+const DEFAULTS = { mode: "auto", pool: "default", topk: 5, alpha: 300 };
 
 const $ = (id) => document.getElementById(id);
 
