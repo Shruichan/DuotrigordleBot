@@ -235,7 +235,7 @@ json process_review(const dt::Wordlists& w, const json& req) {
     if (boards.size() != dt::NUM_BOARDS) {
         return error("'boards' must have exactly 32 entries");
     }
-    const double alpha = req.value("alpha", 1.0);
+    const double alpha = req.value("alpha", 150.0);
 
     int max_turns = 0;
     for (const auto& bj : boards) {
@@ -280,31 +280,35 @@ json process_review(const dt::Wordlists& w, const json& req) {
             for (dt::WordIdx s : bd.candidates) expected_solves[s] += inv;
         }
 
-        // Skill: played_score / best_score, where best is the TRUE argmax of
-        // raw greedy score (entropy + bonus). Per-turn info-theoretic metric.
+        // Skill (1-99, NYT-style): normalize the player's move score against the
+        // full range of all possible moves' scores. 99 = picked the best, 1 = picked
+        // the worst, 50 = picked a median-quality move.
         double played_score = score_guess_total(w, state, g, alpha, expected_solves);
         double best_score = played_score;
+        double worst_score = played_score;
         dt::WordIdx best_g = g;
         if (state.active_boards() > 0) {
             const size_t G = w.num_guesses();
-            #pragma omp parallel
-            {
-                double local_best = 0.0;
-                dt::WordIdx local_arg = g;
-                #pragma omp for nowait schedule(static)
-                for (long long gg = 0; gg < static_cast<long long>(G); ++gg) {
-                    double sc = score_guess_total(w, state, static_cast<dt::WordIdx>(gg),
-                                                   alpha, expected_solves);
-                    if (sc > local_best) { local_best = sc; local_arg = static_cast<dt::WordIdx>(gg); }
+            std::vector<double> all_scores(G);
+            #pragma omp parallel for schedule(static)
+            for (long long gg = 0; gg < static_cast<long long>(G); ++gg) {
+                all_scores[gg] = score_guess_total(w, state, static_cast<dt::WordIdx>(gg),
+                                                    alpha, expected_solves);
+            }
+            for (size_t gg = 0; gg < G; ++gg) {
+                if (all_scores[gg] > best_score) {
+                    best_score = all_scores[gg];
+                    best_g = static_cast<dt::WordIdx>(gg);
                 }
-                #pragma omp critical
-                {
-                    if (local_best > best_score) { best_score = local_best; best_g = local_arg; }
-                }
+                if (all_scores[gg] < worst_score) worst_score = all_scores[gg];
             }
         }
-        double skill = (best_score > 1e-9) ? (played_score / best_score * 100.0) : 100.0;
-        if (skill > 100.0) skill = 100.0;
+        double skill = 99.0;
+        if (best_score > worst_score + 1e-9) {
+            skill = 1.0 + 98.0 * (played_score - worst_score) / (best_score - worst_score);
+        }
+        if (skill < 1.0) skill = 1.0;
+        if (skill > 99.0) skill = 99.0;
 
         // Bot's actual decision (forced-aware): top_k_guesses with forced moves
         // promoted to the top. Distinct from best_g (entropy-max).
@@ -332,9 +336,14 @@ json process_review(const dt::Wordlists& w, const json& req) {
             }
         }
 
-        // Luck: across active boards, sum expected remaining vs actual remaining.
+        // Luck (1-99, NYT-style): for each active board, compute the percentile of
+        // the actual partition size against the probability-weighted distribution
+        // of possible partition sizes. Smaller partition = more info = luckier.
+        // Aggregate by averaging the per-board luck across active boards.
         double exp_total = 0.0, act_total = 0.0;
         double board_entropy_sum = 0.0;
+        double luck_per_board_sum = 0.0;
+        int luck_boards = 0;
         for (int b = 0; b < dt::NUM_BOARDS; ++b) {
             const auto& bd = state.boards[b];
             if (bd.solved || bd.candidates.empty() || !board_has_row[b]) continue;
@@ -342,8 +351,31 @@ json process_review(const dt::Wordlists& w, const json& req) {
             exp_total += bm.expected_remaining;
             act_total += bm.actual_remaining;
             board_entropy_sum += bm.entropy_bits;
+
+            // Probability-weighted distribution of partition sizes for guess g on this board.
+            const dt::Pattern* row = w.feedback_row(g);
+            std::array<int, dt::NUM_PATTERNS> counts{};
+            for (dt::WordIdx s : bd.candidates) counts[row[s]] += 1;
+            const double n = static_cast<double>(bd.candidates.size());
+            const int actual_size = bm.actual_remaining;
+            // P(random outcome leaves a STRICTLY LARGER partition than ours).
+            // Higher = lucky (most other outcomes would have been worse).
+            double prob_worse = 0.0;
+            double prob_equal = 0.0;
+            for (int c : counts) {
+                if (c == 0) continue;
+                if (c > actual_size) prob_worse += c / n;
+                else if (c == actual_size) prob_equal += c / n;
+            }
+            // Tied outcomes split evenly (standard percentile-with-ties).
+            double pct = prob_worse + prob_equal / 2.0;
+            double board_luck = 1.0 + 98.0 * pct;
+            if (board_luck < 1.0) board_luck = 1.0;
+            if (board_luck > 99.0) board_luck = 99.0;
+            luck_per_board_sum += board_luck;
+            ++luck_boards;
         }
-        double luck = (exp_total > 1e-9) ? ((exp_total - act_total) / exp_total * 100.0) : 0.0;
+        double luck = (luck_boards > 0) ? luck_per_board_sum / luck_boards : 50.0;
 
         // Apply the guess (with scraper-miss-safe semantics).
         int32_t g_sol = w.guess_to_sol(g);

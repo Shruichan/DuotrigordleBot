@@ -281,14 +281,14 @@
     modal.id = "dt-review-modal";
     const s = data.summary || {};
     const turns = data.turns || [];
-    const skillColor = (v) => v >= 95 ? "var(--dt-green)" : v >= 85 ? "var(--dt-yellow)" : "var(--dt-red)";
-    const luckColor = (v) => Math.abs(v) < 3 ? "inherit" : (v > 0 ? "var(--dt-green)" : "var(--dt-red)");
+    // 1-99 scale. Green = high, red = low; uses the same color band for both metrics.
+    const score99Color = (v) => v >= 80 ? "var(--dt-green)" : v >= 50 ? "var(--dt-yellow)" : "var(--dt-red)";
     const rows = turns.map((t) => `
       <tr>
         <td class="dt-r-num">${t.turn}</td>
         <td class="dt-r-w">${t.guess}</td>
-        <td class="dt-r-pct" style="color:${skillColor(t.skill)}">${t.skill.toFixed(1)}%</td>
-        <td class="dt-r-pct" style="color:${luckColor(t.luck)}">${t.luck >= 0 ? '+' : ''}${t.luck.toFixed(1)}%</td>
+        <td class="dt-r-pct" style="color:${score99Color(t.skill)}">${Math.round(t.skill)}</td>
+        <td class="dt-r-pct" style="color:${score99Color(t.luck)}">${Math.round(t.luck)}</td>
         <td class="dt-r-num">${t.boards_solved_this_turn}</td>
         <td class="dt-r-w ${t.decision_matched ? '' : 'dt-r-miss'}">${t.bot_choice}</td>
         <td class="dt-r-match">${t.decision_matched ? '✓' : '✗'}</td>
@@ -302,9 +302,9 @@
         <div class="dt-review-summary">
           <div><span>guesses</span><b>${s.total_guesses}</b></div>
           <div><span>solved</span><b>${s.boards_solved}/32</b></div>
-          <div><span>avg skill</span><b style="color:${skillColor(s.avg_skill || 0)}">${(s.avg_skill || 0).toFixed(1)}%</b></div>
-          <div><span>avg luck</span><b style="color:${luckColor(s.avg_luck || 0)}">${(s.avg_luck || 0) >= 0 ? '+' : ''}${(s.avg_luck || 0).toFixed(1)}%</b></div>
-          <div><span>decisions matched</span><b>${s.decisions_matched}/${s.decisions_total}</b></div>
+          <div><span>avg skill</span><b style="color:${score99Color(s.avg_skill || 0)}">${Math.round(s.avg_skill || 0)}</b></div>
+          <div><span>avg luck</span><b style="color:${score99Color(s.avg_luck || 0)}">${Math.round(s.avg_luck || 0)}</b></div>
+          <div><span>bot agreement</span><b>${s.decisions_matched}/${s.decisions_total}</b></div>
         </div>
         <table class="dt-review-table">
           <thead><tr>
@@ -313,10 +313,9 @@
           <tbody>${rows}</tbody>
         </table>
         <p class="dt-review-help">
-          <b>skill</b>: information extracted vs the entropy-max word.
-          <b>luck</b>: actual remaining candidates vs expected (+ = good).
-          <b>bot would play</b>: the bot's strategic pick (forced-move aware);
-          mismatch ✗ means a non-info reason to play differently.
+          <b>skill (1–99)</b>: percentile of your move's quality across all possible words — 99 = bot's top pick, 1 = worst possible.
+          <b>luck (1–99)</b>: percentile of how favorable the actual feedback was — 99 = couldn't have been luckier, 1 = couldn't have been worse.
+          <b>bot would play</b>: the bot's strategic pick (forced-move aware); ✗ means you missed it.
         </p>
       </div>`;
     document.body.appendChild(modal);
