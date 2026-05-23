@@ -62,6 +62,8 @@ int main(int argc, char** argv) {
     std::string force_opener;
     std::string force_prefix_csv;
     std::string alpha_schedule_csv;
+    int lookahead_k = 0;
+    int lookahead_n = 5;
     bool daily_mode = false;
     int daily_start = 1;
     for (int i = 1; i < argc; ++i) {
@@ -82,6 +84,8 @@ int main(int argc, char** argv) {
         else if (a == "--opener" && i + 1 < argc) force_opener = argv[++i];
         else if (a == "--openers" && i + 1 < argc) force_prefix_csv = argv[++i];
         else if (a == "--alphas" && i + 1 < argc) alpha_schedule_csv = argv[++i];
+        else if (a == "--la-k" && i + 1 < argc) lookahead_k = std::atoi(argv[++i]);
+        else if (a == "--la-n" && i + 1 < argc) lookahead_n = std::atoi(argv[++i]);
         else if (a == "--find-worst") trace_mode = true;  // alias to print bad games
         else if (a == "--daily") { daily_mode = true; daily_start = (i + 1 < argc && argv[i+1][0] != '-') ? std::atoi(argv[++i]) : 1; }
         else if (a == "--dump-feedback-table" && i + 1 < argc) {
@@ -134,6 +138,10 @@ int main(int argc, char** argv) {
         if (!oi) { std::cerr << "opener '" << force_opener << "' not in dictionary\n"; return 1; }
         greedy_ptr->set_opener(*oi);
         std::cerr << "forced opener: " << force_opener << "\n";
+    }
+    if (lookahead_k > 0 && greedy_ptr) {
+        greedy_ptr->set_lookahead(lookahead_k, lookahead_n);
+        std::cerr << "2-step lookahead: K=" << lookahead_k << " N=" << lookahead_n << "\n";
     }
     if (!alpha_schedule_csv.empty() && greedy_ptr) {
         std::vector<double> sched;

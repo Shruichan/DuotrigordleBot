@@ -5,6 +5,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <vector>
 
 namespace dt {
@@ -114,6 +115,78 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
     }
     auto it = std::max_element(scores.begin(), scores.end());
     WordIdx best_g = static_cast<WordIdx>(std::distance(scores.begin(), it));
+
+    // 2-step lookahead: among the top-K greedy candidates, simulate forward 1
+    // step with paired-sampled answers and pick the one whose post-state minimizes
+    // total candidate count. This rewards setups that cascade well even when the
+    // raw 1-step score is slightly lower.
+    if (lookahead_k_ > 0 && lookahead_n_ > 0 && gs.active.size() >= 3) {
+        // Take top-K by score.
+        const int K = std::min<int>(lookahead_k_, static_cast<int>(scores.size()));
+        std::vector<WordIdx> top_k(scores.size());
+        std::iota(top_k.begin(), top_k.end(), WordIdx{0});
+        std::partial_sort(top_k.begin(), top_k.begin() + K, top_k.end(),
+                          [&](WordIdx a, WordIdx b) {
+                              if (scores[a] != scores[b]) return scores[a] > scores[b];
+                              return a < b;
+                          });
+        top_k.resize(K);
+
+        // Sample N answer tuples once (paired across candidates).
+        std::mt19937_64 rng(0xD06EE05ULL ^ static_cast<uint64_t>(state.guesses_used));
+        std::vector<std::array<WordIdx, NUM_BOARDS>> samples(lookahead_n_);
+        for (auto& s : samples) {
+            for (int b = 0; b < NUM_BOARDS; ++b) {
+                const auto& cands = state.boards[b].candidates;
+                if (state.boards[b].solved || cands.empty()) { s[b] = 0; continue; }
+                std::uniform_int_distribution<size_t> dist(0, cands.size() - 1);
+                s[b] = cands[dist(rng)];
+            }
+        }
+
+        // For each candidate, evaluate average post-state total candidate count.
+        // Lower = better.
+        double best_total = std::numeric_limits<double>::infinity();
+        WordIdx best_la = best_g;
+        #pragma omp parallel
+        {
+            double local_best = std::numeric_limits<double>::infinity();
+            WordIdx local_arg = best_g;
+            #pragma omp for nowait schedule(dynamic, 1)
+            for (int ki = 0; ki < K; ++ki) {
+                WordIdx g = top_k[ki];
+                double sum_cost = 0.0;
+                const Pattern* row = w_.feedback_row(g);
+                for (const auto& sample : samples) {
+                    // Cost = remaining_candidates - SOLVES_WEIGHT * boards_solved.
+                    // Solving a board saves ~1 future guess. Weight tuned by hand;
+                    // larger weight = more solve-biased (matches the user's goal of
+                    // "guarantee solves from turn 2"). 30 picked because the typical
+                    // alternative info-only word can narrow ~30 candidates total.
+                    constexpr double SOLVES_WEIGHT = 30.0;
+                    int total = 0;
+                    int solves = 0;
+                    for (int b = 0; b < NUM_BOARDS; ++b) {
+                        const auto& cands = state.boards[b].candidates;
+                        if (state.boards[b].solved || cands.empty()) continue;
+                        Pattern p = w_.feedback(g, sample[b]);
+                        if (p == PATTERN_ALL_GREEN) { ++solves; continue; }
+                        int cnt = 0;
+                        for (WordIdx s : cands) if (row[s] == p) ++cnt;
+                        total += cnt;
+                    }
+                    sum_cost += total - SOLVES_WEIGHT * solves;
+                }
+                double avg = sum_cost / lookahead_n_;
+                if (avg < local_best) { local_best = avg; local_arg = g; }
+            }
+            #pragma omp critical
+            {
+                if (local_best < best_total) { best_total = local_best; best_la = local_arg; }
+            }
+        }
+        best_g = best_la;
+    }
 
     // "Rhyme trap" override: when only one or two active boards remain and at
     // least one has |C|>=3 with the candidates all nearly-rhymes (the partition

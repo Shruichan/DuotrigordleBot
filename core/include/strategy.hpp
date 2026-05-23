@@ -36,6 +36,11 @@ public:
     // Per-turn alpha schedule; if non-empty, overrides answer_bonus_ based on
     // current turn index (state.guesses_used; clamped to last entry).
     void set_alpha_schedule(std::vector<double> sched) { alpha_schedule_ = std::move(sched); }
+    // Enable 2-step lookahead: for each top-K_la greedy candidate at turn t,
+    // sample n_la answer tuples, apply, then evaluate via greedy's next-step
+    // score on the resulting state. Pick the candidate maximizing the 2-step
+    // total. 0 disables.
+    void set_lookahead(int k_la, int n_la) { lookahead_k_ = k_la; lookahead_n_ = n_la; }
 
 private:
     double score_guess(WordIdx g,
@@ -48,6 +53,8 @@ private:
     WordIdx opener_cache_;
     std::vector<WordIdx> forced_prefix_;
     std::vector<double> alpha_schedule_;
+    int lookahead_k_ = 0;  // 0 = no lookahead
+    int lookahead_n_ = 0;
 };
 
 }
