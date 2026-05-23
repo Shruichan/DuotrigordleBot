@@ -60,6 +60,10 @@ int main(int argc, char** argv) {
     bool trace_mode = false;
     std::string export_dir;
     std::string force_opener;
+    std::string force_prefix_csv;
+    std::string alpha_schedule_csv;
+    bool daily_mode = false;
+    int daily_start = 1;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "-n" && i + 1 < argc) num_games = std::atoi(argv[++i]);
@@ -76,6 +80,10 @@ int main(int argc, char** argv) {
         else if (a == "-T" && i + 1 < argc) endgame_threshold = std::atoi(argv[++i]);
         else if (a == "--export-features" && i + 1 < argc) export_dir = argv[++i];
         else if (a == "--opener" && i + 1 < argc) force_opener = argv[++i];
+        else if (a == "--openers" && i + 1 < argc) force_prefix_csv = argv[++i];
+        else if (a == "--alphas" && i + 1 < argc) alpha_schedule_csv = argv[++i];
+        else if (a == "--find-worst") trace_mode = true;  // alias to print bad games
+        else if (a == "--daily") { daily_mode = true; daily_start = (i + 1 < argc && argv[i+1][0] != '-') ? std::atoi(argv[++i]) : 1; }
         else if (a == "--dump-feedback-table" && i + 1 < argc) {
             std::ofstream out(argv[++i], std::ios::binary);
             // Dummy load to access feedback table
@@ -126,6 +134,38 @@ int main(int argc, char** argv) {
         if (!oi) { std::cerr << "opener '" << force_opener << "' not in dictionary\n"; return 1; }
         greedy_ptr->set_opener(*oi);
         std::cerr << "forced opener: " << force_opener << "\n";
+    }
+    if (!alpha_schedule_csv.empty() && greedy_ptr) {
+        std::vector<double> sched;
+        std::string cur;
+        alpha_schedule_csv += ",";
+        for (char c : alpha_schedule_csv) {
+            if (c == ',') { if (!cur.empty()) { sched.push_back(std::atof(cur.c_str())); cur.clear(); } }
+            else cur.push_back(c);
+        }
+        greedy_ptr->set_alpha_schedule(sched);
+        std::cerr << "alpha schedule (" << sched.size() << "): ";
+        for (double a : sched) std::cerr << a << " ";
+        std::cerr << "\n";
+    }
+    if (!force_prefix_csv.empty() && greedy_ptr) {
+        std::vector<dt::WordIdx> seq;
+        std::string cur;
+        force_prefix_csv += ",";
+        for (char c : force_prefix_csv) {
+            if (c == ',') {
+                if (cur.empty()) continue;
+                std::transform(cur.begin(), cur.end(), cur.begin(), ::toupper);
+                auto oi = w.guess_index(cur);
+                if (!oi) { std::cerr << "prefix word '" << cur << "' not in dictionary\n"; return 1; }
+                seq.push_back(*oi);
+                cur.clear();
+            } else cur.push_back(c);
+        }
+        greedy_ptr->set_forced_prefix(seq);
+        std::cerr << "forced prefix (" << seq.size() << " words): ";
+        for (auto g : seq) std::cerr << w.guess(g) << " ";
+        std::cerr << "\n";
     }
 
     if (!answers_csv.empty()) {
@@ -262,7 +302,10 @@ int main(int argc, char** argv) {
     std::cerr << "Running " << num_games << " games (seed=" << seed << ", pool=" << pool
               << ", strategy=" << strat->name() << ")...\n";
     auto stats = dt::run_benchmark(w, *strat, num_games, seed, 50, true,
-                                   distinct_answers, use_distinct_constraint);
+                                   distinct_answers, use_distinct_constraint,
+                                   daily_mode, daily_start);
+    if (daily_mode) std::cerr << "daily mode: ids " << daily_start
+                              << "-" << (daily_start + num_games - 1) << "\n";
     std::cerr << "distinct_answers=" << distinct_answers
               << " use_distinct_constraint=" << use_distinct_constraint << "\n";
 

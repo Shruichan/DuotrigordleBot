@@ -34,14 +34,32 @@ GameResult run_one_game(const Wordlists& w, Strategy& strat,
     return r;
 }
 
+// Replicates the site's daily-answers picker: std::mt19937(game_id), then
+// `rng() % pool` deduped to 32. Matches `KA(seed, "normal", "default")` in the
+// duotrigordle.com bundle (Mersenne Twister + uniform-mod-pool).
+std::array<WordIdx, NUM_BOARDS> daily_answers(const Wordlists& w, uint32_t game_id) {
+    std::mt19937 rng(game_id);
+    std::array<WordIdx, NUM_BOARDS> out{};
+    std::vector<uint8_t> seen(w.num_solutions(), 0);
+    int filled = 0;
+    while (filled < NUM_BOARDS) {
+        uint32_t idx = rng() % static_cast<uint32_t>(w.num_solutions());
+        if (!seen[idx]) { seen[idx] = 1; out[filled++] = static_cast<WordIdx>(idx); }
+    }
+    return out;
+}
+
 BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
                          int num_games, uint64_t seed, int max_guesses,
                          bool verbose,
                          bool distinct_answers,
-                         bool use_distinct_constraint) {
+                         bool use_distinct_constraint,
+                         bool daily_mode,
+                         int daily_start) {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<WordIdx> pick(0, static_cast<WordIdx>(w.num_solutions() - 1));
     std::vector<uint8_t> picked_buf(w.num_solutions(), 0);
+    (void)pick;  // (used in non-daily branch)
 
     BenchStats stats{};
     stats.games = num_games;
@@ -57,7 +75,9 @@ BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
     auto t0 = std::chrono::steady_clock::now();
     for (int i = 0; i < num_games; ++i) {
         std::array<WordIdx, NUM_BOARDS> answers{};
-        if (distinct_answers) {
+        if (daily_mode) {
+            answers = daily_answers(w, static_cast<uint32_t>(daily_start + i));
+        } else if (distinct_answers) {
             std::fill(picked_buf.begin(), picked_buf.end(), 0);
             for (auto& a : answers) {
                 WordIdx x;

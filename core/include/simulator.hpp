@@ -40,6 +40,13 @@ BenchStats run_benchmark(const Wordlists& w, Strategy& strat,
                          int max_guesses = 50,
                          bool verbose = true,
                          bool distinct_answers = true,
-                         bool use_distinct_constraint = true);
+                         bool use_distinct_constraint = true,
+                         bool daily_mode = false,
+                         int daily_start = 1);
+
+// Generate the answer set for a specific daily game id using the website's
+// algorithm: std::mt19937 seeded with the game id, draw indices into the
+// solution pool, dedupe to 32 distinct.
+std::array<WordIdx, NUM_BOARDS> daily_answers(const Wordlists& w, uint32_t game_id);
 
 }

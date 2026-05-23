@@ -3,6 +3,8 @@
 #include "game_state.hpp"
 #include "wordlists.hpp"
 
+#include <vector>
+
 namespace dt {
 
 class Strategy {
@@ -29,6 +31,11 @@ public:
     void clear_cache() { opener_cache_ = INVALID_WORD; }
     // Force a specific opener; useful for benching opener candidates.
     void set_opener(WordIdx g) { opener_cache_ = g; }
+    // Force an entire opening sequence (overrides set_opener while in effect).
+    void set_forced_prefix(std::vector<WordIdx> seq) { forced_prefix_ = std::move(seq); }
+    // Per-turn alpha schedule; if non-empty, overrides answer_bonus_ based on
+    // current turn index (state.guesses_used; clamped to last entry).
+    void set_alpha_schedule(std::vector<double> sched) { alpha_schedule_ = std::move(sched); }
 
 private:
     double score_guess(WordIdx g,
@@ -39,6 +46,8 @@ private:
     const Wordlists& w_;
     double answer_bonus_;
     WordIdx opener_cache_;
+    std::vector<WordIdx> forced_prefix_;
+    std::vector<double> alpha_schedule_;
 };
 
 }
