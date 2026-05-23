@@ -59,6 +59,7 @@ int main(int argc, char** argv) {
     std::string answers_csv;
     bool trace_mode = false;
     std::string export_dir;
+    std::string force_opener;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "-n" && i + 1 < argc) num_games = std::atoi(argv[++i]);
@@ -74,6 +75,7 @@ int main(int argc, char** argv) {
         else if (a == "--trace") trace_mode = true;
         else if (a == "-T" && i + 1 < argc) endgame_threshold = std::atoi(argv[++i]);
         else if (a == "--export-features" && i + 1 < argc) export_dir = argv[++i];
+        else if (a == "--opener" && i + 1 < argc) force_opener = argv[++i];
         else if (a == "--dump-feedback-table" && i + 1 < argc) {
             std::ofstream out(argv[++i], std::ios::binary);
             // Dummy load to access feedback table
@@ -101,8 +103,11 @@ int main(int argc, char** argv) {
 
     dt::Wordlists w(DT_DATA_DIR, pool);
     std::unique_ptr<dt::Strategy> strat;
+    dt::GreedyStrategy* greedy_ptr = nullptr;
     if (strat_name == "greedy") {
-        strat = std::make_unique<dt::GreedyStrategy>(w, alpha);
+        auto g = std::make_unique<dt::GreedyStrategy>(w, alpha);
+        greedy_ptr = g.get();
+        strat = std::move(g);
     } else if (strat_name == "beam") {
         strat = std::make_unique<dt::BeamStrategy>(w, beam_k, beam_samples, alpha);
         std::cerr << "beam k=" << beam_k << " samples=" << beam_samples << "\n";
@@ -114,6 +119,14 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::cerr << "alpha (answer_bonus) = " << alpha << "\n";
+
+    if (!force_opener.empty() && greedy_ptr) {
+        std::transform(force_opener.begin(), force_opener.end(), force_opener.begin(), ::toupper);
+        auto oi = w.guess_index(force_opener);
+        if (!oi) { std::cerr << "opener '" << force_opener << "' not in dictionary\n"; return 1; }
+        greedy_ptr->set_opener(*oi);
+        std::cerr << "forced opener: " << force_opener << "\n";
+    }
 
     if (!answers_csv.empty()) {
         std::array<dt::WordIdx, dt::NUM_BOARDS> answers{};

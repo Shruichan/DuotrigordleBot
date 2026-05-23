@@ -27,6 +27,8 @@ public:
                                        const std::vector<WordIdx>& pool = {}) const;
 
     void clear_cache() { opener_cache_ = INVALID_WORD; }
+    // Force a specific opener; useful for benching opener candidates.
+    void set_opener(WordIdx g) { opener_cache_ = g; }
 
 private:
     double score_guess(WordIdx g,
