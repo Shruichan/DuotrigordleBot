@@ -23,6 +23,7 @@ add_library(dt_core STATIC
     core/src/strategy_beam.cpp
     core/src/strategy_endgame.cpp
     core/src/simulator.cpp
+    core/src/value_net.cpp
 )
 target_include_directories(dt_core PUBLIC core/include)
 target_link_libraries(dt_core PUBLIC OpenMP::OpenMP_CXX)
@@ -50,3 +51,6 @@ target_link_libraries(dt_worker PRIVATE dt_core nlohmann_json::nlohmann_json)
 
 add_executable(dt_export_labels core/bench/export_turn_labels.cpp)
 target_link_libraries(dt_export_labels PRIVATE dt_core)
+
+add_executable(dt_gen_value_data core/bench/gen_value_data.cpp)
+target_link_libraries(dt_gen_value_data PRIVATE dt_core)
