@@ -24,3 +24,10 @@ ml/train_log*.json
 
 # local conversation state
 .claude/
+
+# Value-net training data (large, regenerable via dt_gen_value_data)
+data/value_train_*/
+# Verbose run captures (the *_log.txt files hold the distilled results)
+scripts/*_run.out
+# Experimental quantile nets (mean-trained value_net_20260527.bin is the keeper)
+data/value_net_q*.bin
