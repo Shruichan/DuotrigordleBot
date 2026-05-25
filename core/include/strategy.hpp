@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game_state.hpp"
+#include "value_net.hpp"
 #include "wordlists.hpp"
 
 #include <vector>
@@ -41,6 +42,23 @@ public:
     // score on the resulting state. Pick the candidate maximizing the 2-step
     // total. 0 disables.
     void set_lookahead(int k_la, int n_la) { lookahead_k_ = k_la; lookahead_n_ = n_la; }
+    // Exact expected-feature value ranking instead of Monte-Carlo sampling.
+    // max_active gates it to states with <= that many active boards (the late
+    // game, where the tail forms); large value = always on.
+    void set_lookahead_exact(bool e, int max_active = 999) {
+        lookahead_exact_ = e;
+        lookahead_exact_max_active_ = max_active;
+    }
+    // Attach a value net for lookahead leaf eval. Pointer must outlive `*this`.
+    void set_value_net(const ValueNet* vn) { value_net_ = vn; }
+    // Budget-aware tail avoidance. When slack (= 34 - guesses_used -
+    // active_boards) <= slack_threshold and >=2 boards are still ambiguous,
+    // use `alpha` (typically ~0, info-favoring) for that turn instead of the
+    // normal answer_bonus_. -1 disables (default).
+    void set_panic(int slack_threshold, double alpha = 0.0) {
+        panic_slack_ = slack_threshold;
+        panic_alpha_ = alpha;
+    }
 
 private:
     double score_guess(WordIdx g,
@@ -55,6 +73,11 @@ private:
     std::vector<double> alpha_schedule_;
     int lookahead_k_ = 0;  // 0 = no lookahead
     int lookahead_n_ = 0;
+    bool lookahead_exact_ = false;
+    int lookahead_exact_max_active_ = 999;
+    const ValueNet* value_net_ = nullptr;
+    int panic_slack_ = -1;       // -1 = disabled
+    double panic_alpha_ = 0.0;
 };
 
 }

@@ -97,7 +97,28 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
     auto gs = build_setup(w_, state);
     if (gs.active.empty()) return 0;
 
-    if (!gs.forced.empty()) {
+    // Budget-aware "panic mode" for the 34-guess tail. The 35+ tail comes from
+    // committing on multiple |C|>=2 boards in a tight endgame and missing the
+    // 50/50s. One info word can disambiguate several |C|>=2 boards at once so
+    // they all solve next turn (2 turns guaranteed, no gamble). Greedy at high
+    // alpha is commit-biased and won't play it — so when slack toward a
+    // 34-finish is tight AND >=2 boards still have ambiguity, drop alpha for
+    // this turn to favor that disambiguating word, and skip the forced-commit
+    // shortcut. slack = 34 - guesses_used - active_boards (each board needs >=1
+    // more guess; negative/small slack = a single miss risks exceeding 34).
+    bool panic = false;
+    if (panic_slack_ >= 0) {
+        int n_active = static_cast<int>(gs.active.size());
+        int n_ambig = 0;
+        for (int b : gs.active) if (state.boards[b].candidates.size() >= 2) ++n_ambig;
+        int slack = 34 - state.guesses_used - n_active;
+        if (slack <= panic_slack_ && n_ambig >= 2) {
+            const_cast<GreedyStrategy*>(this)->answer_bonus_ = panic_alpha_;
+            panic = true;
+        }
+    }
+
+    if (!gs.forced.empty() && !panic) {
         double best = -1.0;
         WordIdx best_g = gs.forced[0];
         for (WordIdx g : gs.forced) {
@@ -132,6 +153,51 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
                           });
         top_k.resize(K);
 
+        // Exact expected-feature value ranking (no sampling noise). For each
+        // candidate g, compute the deterministic EXPECTED post-guess candidate
+        // count per board:  E[|C'_b|] = (sum_p |part_p|^2) / |C_b|. Build the
+        // value-net feature vector from those expected counts and evaluate V
+        // once. Pick the candidate minimizing 1 + E[V(s')]. Removes the
+        // Monte-Carlo variance that made the sampled lookahead pick near-randomly
+        // among near-tied top-K.
+        if (lookahead_exact_ && value_net_ != nullptr && value_net_->loaded()
+            && static_cast<int>(gs.active.size()) <= lookahead_exact_max_active_) {
+            const int post_guesses_used = state.guesses_used + 1;
+            double best_v = std::numeric_limits<double>::infinity();
+            WordIdx best_e = best_g;
+            #pragma omp parallel
+            {
+                double local_best = std::numeric_limits<double>::infinity();
+                WordIdx local_arg = best_g;
+                std::array<int, NUM_BOARDS> post_cnts{};
+                std::array<float, ValueNet::FEATURE_DIM> feats{};
+                #pragma omp for nowait schedule(dynamic, 1)
+                for (int ki = 0; ki < K; ++ki) {
+                    WordIdx g = top_k[ki];
+                    const Pattern* row = w_.feedback_row(g);
+                    for (int b = 0; b < NUM_BOARDS; ++b) {
+                        const auto& cs = state.boards[b].candidates;
+                        if (state.boards[b].solved || cs.empty()) { post_cnts[b] = 0; continue; }
+                        std::array<int, NUM_PATTERNS> part{};
+                        for (WordIdx s : cs) part[row[s]] += 1;
+                        long sumsq = 0;
+                        for (int c : part) sumsq += static_cast<long>(c) * c;
+                        double e_cnt = static_cast<double>(sumsq) / static_cast<double>(cs.size());
+                        // All-green partition (size 1 once solved) contributes; if the
+                        // board is certainly solved (|C|==1) expected count -> 0.
+                        int rc = static_cast<int>(e_cnt + 0.5);
+                        post_cnts[b] = (rc <= 1) ? (cs.size() == 1 ? 0 : 1) : rc;
+                    }
+                    ValueNet::compute_features_post(post_guesses_used, post_cnts.data(), feats.data());
+                    double v = static_cast<double>(value_net_->eval(feats.data()));
+                    if (v < local_best) { local_best = v; local_arg = g; }
+                }
+                #pragma omp critical
+                { if (local_best < best_v) { best_v = local_best; best_e = local_arg; } }
+            }
+            return best_e;
+        }
+
         // Sample N answer tuples once (paired across candidates).
         std::mt19937_64 rng(0xD06EE05ULL ^ static_cast<uint64_t>(state.guesses_used));
         std::vector<std::array<WordIdx, NUM_BOARDS>> samples(lookahead_n_);
@@ -144,38 +210,67 @@ WordIdx GreedyStrategy::choose_guess(const GameState& state) {
             }
         }
 
-        // For each candidate, evaluate average post-state total candidate count.
-        // Lower = better.
+        // Leaf eval. Two modes:
+        //  - ValueNet attached: featurize the post-state and call V(s').
+        //    Trained from greedy self-play (label = remaining_turns), so much
+        //    more accurate than any hand-tuned formula at distinguishing
+        //    near-tied top-K candidates.
+        //  - Fallback (no net): per-board E[turns | |C|] table:
+        //    k=1: 1.0  k=2: 1.50  k=3: 1.83  k>=4: 1.5 + 0.4*log2(k) (cap 3.5)
+        auto turns_for_k = [](int k) -> double {
+            if (k <= 1) return 1.0;
+            if (k == 2) return 1.50;
+            if (k == 3) return 1.83;
+            double v = 1.5 + 0.4 * std::log2(static_cast<double>(k));
+            return v > 3.5 ? 3.5 : v;
+        };
+        const bool use_net = (value_net_ != nullptr && value_net_->loaded());
+        const int post_guesses_used = state.guesses_used + 1;
         double best_total = std::numeric_limits<double>::infinity();
         WordIdx best_la = best_g;
         #pragma omp parallel
         {
             double local_best = std::numeric_limits<double>::infinity();
             WordIdx local_arg = best_g;
+            std::array<int, NUM_BOARDS> post_cnts{};
+            std::array<float, ValueNet::FEATURE_DIM> feats{};
             #pragma omp for nowait schedule(dynamic, 1)
             for (int ki = 0; ki < K; ++ki) {
                 WordIdx g = top_k[ki];
                 double sum_cost = 0.0;
                 const Pattern* row = w_.feedback_row(g);
                 for (const auto& sample : samples) {
-                    // Cost = remaining_candidates - SOLVES_WEIGHT * boards_solved.
-                    // Solving a board saves ~1 future guess. Weight tuned by hand;
-                    // larger weight = more solve-biased (matches the user's goal of
-                    // "guarantee solves from turn 2"). 30 picked because the typical
-                    // alternative info-only word can narrow ~30 candidates total.
-                    constexpr double SOLVES_WEIGHT = 30.0;
-                    int total = 0;
-                    int solves = 0;
-                    for (int b = 0; b < NUM_BOARDS; ++b) {
-                        const auto& cands = state.boards[b].candidates;
-                        if (state.boards[b].solved || cands.empty()) continue;
-                        Pattern p = w_.feedback(g, sample[b]);
-                        if (p == PATTERN_ALL_GREEN) { ++solves; continue; }
-                        int cnt = 0;
-                        for (WordIdx s : cands) if (row[s] == p) ++cnt;
-                        total += cnt;
+                    if (use_net) {
+                        // Build post-board counts then eval the net.
+                        for (int b = 0; b < NUM_BOARDS; ++b) {
+                            const auto& cands = state.boards[b].candidates;
+                            if (state.boards[b].solved || cands.empty()) {
+                                post_cnts[b] = 0;
+                                continue;
+                            }
+                            Pattern p = w_.feedback(g, sample[b]);
+                            if (p == PATTERN_ALL_GREEN) { post_cnts[b] = 0; continue; }
+                            int cnt = 0;
+                            for (WordIdx s : cands) if (row[s] == p) ++cnt;
+                            post_cnts[b] = cnt;
+                        }
+                        ValueNet::compute_features_post(post_guesses_used,
+                                                       post_cnts.data(),
+                                                       feats.data());
+                        sum_cost += static_cast<double>(value_net_->eval(feats.data()));
+                    } else {
+                        double cost = 0.0;
+                        for (int b = 0; b < NUM_BOARDS; ++b) {
+                            const auto& cands = state.boards[b].candidates;
+                            if (state.boards[b].solved || cands.empty()) continue;
+                            Pattern p = w_.feedback(g, sample[b]);
+                            if (p == PATTERN_ALL_GREEN) continue;
+                            int cnt = 0;
+                            for (WordIdx s : cands) if (row[s] == p) ++cnt;
+                            cost += turns_for_k(cnt);
+                        }
+                        sum_cost += cost;
                     }
-                    sum_cost += total - SOLVES_WEIGHT * solves;
                 }
                 double avg = sum_cost / lookahead_n_;
                 if (avg < local_best) { local_best = avg; local_arg = g; }

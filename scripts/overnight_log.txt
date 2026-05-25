@@ -1,0 +1,6 @@
+2026-05-27T03:01:00-07:00  games=100000 epochs=30 hidden=64 bench_n=2000 la=10/5
+  baseline   mean=33.62 max=36  32:8 33:831 34:1071 35:87 36:3 
+  value-net  mean=33.64 max=36  32:4 33:795 34:1121 35:78 36:2 
+  delta_mean = 0.02
+  elapsed: gen=1070s train=357s bench=41s
+
