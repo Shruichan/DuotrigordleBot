@@ -22,6 +22,7 @@ add_library(dt_core STATIC
     core/src/strategy_greedy.cpp
     core/src/strategy_beam.cpp
     core/src/strategy_endgame.cpp
+    core/src/strategy_mcts.cpp
     core/src/simulator.cpp
     core/src/value_net.cpp
 )
