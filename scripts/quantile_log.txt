@@ -1,0 +1,5 @@
+==== quantile experiment 2026-05-27T03:40:33-07:00 N=2000 seed=7 ====
+exactV q0.80           mean=33.76 max=35  32:1 33:549 34:1380 35:70 
+exactV q0.90           mean=33.77 max=35  32:1 33:524 34:1406 35:69 
+exactV q0.95           mean=33.77 max=35  32:1 33:531 34:1397 35:71 
+==== quantile experiment done 2026-05-27T03:56:13-07:00 ====
