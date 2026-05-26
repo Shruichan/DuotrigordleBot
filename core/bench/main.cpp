@@ -2,6 +2,8 @@
 #include "strategy.hpp"
 #include "strategy_beam.hpp"
 #include "strategy_endgame.hpp"
+#include "strategy_mcts.hpp"
+#include "value_net.hpp"
 #include "wordlists.hpp"
 
 #include <algorithm>
@@ -64,6 +66,16 @@ int main(int argc, char** argv) {
     std::string alpha_schedule_csv;
     int lookahead_k = 0;
     int lookahead_n = 5;
+    bool lookahead_exact = false;
+    int lookahead_exact_max_active = 999;
+    std::string value_net_path;
+    int mcts_k = 10;
+    int mcts_r = 20;
+    int mcts_depth = 2;
+    int mcts_max_active = 16;
+    double mcts_risk = 0.0;
+    int panic_slack = -1;
+    double panic_alpha = 0.0;
     bool daily_mode = false;
     int daily_start = 1;
     for (int i = 1; i < argc; ++i) {
@@ -86,6 +98,16 @@ int main(int argc, char** argv) {
         else if (a == "--alphas" && i + 1 < argc) alpha_schedule_csv = argv[++i];
         else if (a == "--la-k" && i + 1 < argc) lookahead_k = std::atoi(argv[++i]);
         else if (a == "--la-n" && i + 1 < argc) lookahead_n = std::atoi(argv[++i]);
+        else if (a == "--la-exact") lookahead_exact = true;
+        else if (a == "--la-exact-max-active" && i + 1 < argc) lookahead_exact_max_active = std::atoi(argv[++i]);
+        else if (a == "--value-net" && i + 1 < argc) value_net_path = argv[++i];
+        else if (a == "--mcts-k" && i + 1 < argc) mcts_k = std::atoi(argv[++i]);
+        else if (a == "--mcts-r" && i + 1 < argc) mcts_r = std::atoi(argv[++i]);
+        else if (a == "--mcts-depth" && i + 1 < argc) mcts_depth = std::atoi(argv[++i]);
+        else if (a == "--mcts-max-active" && i + 1 < argc) mcts_max_active = std::atoi(argv[++i]);
+        else if (a == "--mcts-risk" && i + 1 < argc) mcts_risk = std::atof(argv[++i]);
+        else if (a == "--panic-slack" && i + 1 < argc) panic_slack = std::atoi(argv[++i]);
+        else if (a == "--panic-alpha" && i + 1 < argc) panic_alpha = std::atof(argv[++i]);
         else if (a == "--find-worst") trace_mode = true;  // alias to print bad games
         else if (a == "--daily") { daily_mode = true; daily_start = (i + 1 < argc && argv[i+1][0] != '-') ? std::atoi(argv[++i]) : 1; }
         else if (a == "--dump-feedback-table" && i + 1 < argc) {
@@ -116,6 +138,7 @@ int main(int argc, char** argv) {
     dt::Wordlists w(DT_DATA_DIR, pool);
     std::unique_ptr<dt::Strategy> strat;
     dt::GreedyStrategy* greedy_ptr = nullptr;
+    dt::MctsStrategy* mcts_ptr = nullptr;
     if (strat_name == "greedy") {
         auto g = std::make_unique<dt::GreedyStrategy>(w, alpha);
         greedy_ptr = g.get();
@@ -126,22 +149,49 @@ int main(int argc, char** argv) {
     } else if (strat_name == "endgame") {
         strat = std::make_unique<dt::EndgameStrategy>(w, endgame_threshold, alpha);
         std::cerr << "endgame threshold=" << endgame_threshold << "\n";
+    } else if (strat_name == "mcts") {
+        auto m = std::make_unique<dt::MctsStrategy>(w, alpha, mcts_k, mcts_r,
+                                                    mcts_depth, mcts_max_active);
+        m->set_risk_lambda(mcts_risk);
+        mcts_ptr = m.get();
+        strat = std::move(m);
+        std::cerr << "mcts K=" << mcts_k << " R=" << mcts_r << " depth=" << mcts_depth
+                  << " max_active=" << mcts_max_active << " risk=" << mcts_risk << "\n";
     } else {
         std::cerr << "unknown strategy: " << strat_name << "\n";
         return 1;
     }
     std::cerr << "alpha (answer_bonus) = " << alpha << "\n";
 
-    if (!force_opener.empty() && greedy_ptr) {
+    if (!force_opener.empty() && (greedy_ptr || mcts_ptr)) {
         std::transform(force_opener.begin(), force_opener.end(), force_opener.begin(), ::toupper);
         auto oi = w.guess_index(force_opener);
         if (!oi) { std::cerr << "opener '" << force_opener << "' not in dictionary\n"; return 1; }
-        greedy_ptr->set_opener(*oi);
+        if (greedy_ptr) greedy_ptr->set_opener(*oi);
+        if (mcts_ptr) mcts_ptr->set_opener(*oi);
         std::cerr << "forced opener: " << force_opener << "\n";
     }
     if (lookahead_k > 0 && greedy_ptr) {
         greedy_ptr->set_lookahead(lookahead_k, lookahead_n);
-        std::cerr << "2-step lookahead: K=" << lookahead_k << " N=" << lookahead_n << "\n";
+        if (lookahead_exact) greedy_ptr->set_lookahead_exact(true, lookahead_exact_max_active);
+        std::cerr << "2-step lookahead: K=" << lookahead_k << " N=" << lookahead_n
+                  << (lookahead_exact ? " [exact expected-V, max_active="
+                                        + std::to_string(lookahead_exact_max_active) + "]" : "")
+                  << "\n";
+    }
+    if (panic_slack >= 0 && greedy_ptr) {
+        greedy_ptr->set_panic(panic_slack, panic_alpha);
+        std::cerr << "panic mode: slack<=" << panic_slack << " -> alpha=" << panic_alpha << "\n";
+    }
+    dt::ValueNet value_net;
+    if (!value_net_path.empty() && (greedy_ptr || mcts_ptr)) {
+        if (!value_net.load(value_net_path)) {
+            std::cerr << "Failed to load value net from " << value_net_path << "\n";
+            return 1;
+        }
+        if (greedy_ptr) greedy_ptr->set_value_net(&value_net);
+        if (mcts_ptr) mcts_ptr->set_value_net(&value_net);
+        std::cerr << "value net loaded: feat_dim=" << value_net.feature_dim() << "\n";
     }
     if (!alpha_schedule_csv.empty() && greedy_ptr) {
         std::vector<double> sched;
