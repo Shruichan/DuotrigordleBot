@@ -72,31 +72,19 @@
     if (contextInvalidated) return;
     const state = readState();
     if (!state) return;
+    // While the engine warms up its tables, show progress instead of stalling.
+    if (!window.DTSolver) { renderStatus("starting…"); return; }
+    if (DTSolver.status() !== "ready") { renderStatus(DTSolver.status()); }
     const key = JSON.stringify(state);
     if (key === lastKey || inFlight) return;
     lastKey = key;
     inFlight = true;
     try {
-      if (!chrome.runtime || !chrome.runtime.id) {
-        contextInvalidated = true;
-        renderError("Extension reloaded — refresh this page");
-        return;
-      }
-      const resp = await chrome.runtime.sendMessage({ type: "suggest", state });
-      if (resp && resp.ok) {
-        lastSuggestion = resp.data;
-        render(resp.data);
-      } else {
-        renderError(resp ? resp.error : "no response");
-      }
+      const data = await DTSolver.suggest(state.boards, 5);
+      lastSuggestion = data;
+      render(data);
     } catch (e) {
-      const msg = String(e);
-      if (msg.includes("Extension context invalidated") || msg.includes("message port closed")) {
-        contextInvalidated = true;
-        renderError("Extension reloaded — refresh this page");
-      } else {
-        renderError(msg);
-      }
+      renderError(String(e));
     } finally {
       inFlight = false;
     }
@@ -206,9 +194,8 @@
       if (!state) { copyStatus.textContent = "no board state"; return; }
       copyStatus.textContent = "reviewing…";
       try {
-        const resp = await chrome.runtime.sendMessage({ type: "review", state });
-        if (resp && resp.ok) { renderReview(resp.data); copyStatus.textContent = ""; }
-        else { copyStatus.textContent = (resp && resp.error || "review failed").slice(0, 60); }
+        const data = await DTSolver.review(state.boards);
+        renderReview(data); copyStatus.textContent = "";
       } catch (e) {
         copyStatus.textContent = String(e).slice(0, 60);
       }
@@ -329,6 +316,12 @@
     el.querySelector("#dt-pick").innerHTML = "";
     el.querySelector("#dt-meta").textContent = String(msg).slice(0, 200);
     el.querySelector("#dt-alts").innerHTML = "";
+  }
+
+  // Transient status (engine warmup etc.) without clobbering the last pick.
+  function renderStatus(msg) {
+    const el = ensureOverlay();
+    el.querySelector("#dt-status").textContent = msg;
   }
 
   log("loaded");

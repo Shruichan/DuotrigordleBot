@@ -15,40 +15,13 @@
         background: hsl(240, 10%, 18%);
         border-bottom: 1px solid hsl(240, 10%, 24%);
       }
-      h1 {
-        margin: 0;
-        font-size: 13px;
-        font-weight: 600;
-      }
-      #status {
-        font-size: 11px;
-        margin-top: 4px;
-        color: hsl(240, 10%, 70%);
-      }
+      h1 { margin: 0; font-size: 13px; font-weight: 600; }
+      #status { font-size: 11px; margin-top: 4px; color: hsl(240, 10%, 70%); }
       .ok { color: hsl(148, 60%, 60%); }
-      .bad { color: hsl(0, 80%, 65%); }
       .pane { padding: 10px 12px; }
-      .row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-      .row label { font-size: 12px; }
-      .row select, .row input[type=number] {
-        background: hsl(240, 10%, 16%);
-        color: inherit;
-        border: 1px solid hsl(240, 10%, 26%);
-        border-radius: 3px;
-        padding: 2px 6px;
-        font: inherit;
-      }
-      .row input[type=range] { width: 130px; }
-      .help {
-        font-size: 11px;
-        color: hsl(240, 10%, 60%);
-        margin-top: 4px;
-      }
+      p { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: hsl(240, 10%, 80%); }
+      a { color: hsl(45, 100%, 70%); }
+      .muted { color: hsl(240, 10%, 60%); font-size: 11px; }
       code {
         background: hsl(240, 10%, 18%);
         color: hsl(45, 100%, 75%);
@@ -56,50 +29,27 @@
         border-radius: 3px;
         font-size: 11px;
       }
-      hr {
-        border: none;
-        border-top: 1px solid hsl(240, 10%, 22%);
-        margin: 6px 0;
-      }
     </style>
   </head>
   <body>
     <header>
       <h1>Duotrigordle Bot</h1>
-      <div id="status">checking solver…</div>
+      <div id="status" class="ok">runs in your browser — no setup</div>
     </header>
     <div class="pane">
-      <div class="row">
-        <label for="mode">Mode</label>
-        <select id="mode">
-          <option value="auto">Auto (greedy, info OK)</option>
-          <option value="perfect">Perfect (answers only)</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="pool">Solution pool</label>
-        <select id="pool">
-          <option value="default">Default (current)</option>
-          <option value="nyt">NYT (legacy)</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="topk">Suggestions shown</label>
-        <input id="topk" type="number" min="1" max="20" value="5" />
-      </div>
-      <div class="row">
-        <label for="alpha">Answer bonus α: <span id="alpha-val">300</span></label>
-        <input id="alpha" type="range" min="1" max="1000" step="1" value="300" />
-      </div>
-      <hr />
-      <div class="help">
-        Perfect mode restricts guesses to words still in some board's candidate set
-        (no info-only guesses). Use when going for a 32-guess solve.
-      </div>
-      <div class="help">
-        Solver runs locally — start with <code>python3 server/serve.py</code>.
-      </div>
+      <p>
+        Open <a href="https://duotrigordle.com" target="_blank">duotrigordle.com</a>
+        and the bot overlay appears automatically with its suggested guess.
+      </p>
+      <p class="muted">
+        The first suggestion on a fresh page takes a couple of seconds while the
+        solver warms up its tables; after that it's instant.
+      </p>
+      <p class="muted">
+        Strategy: entropy-greedy across all 32 boards with a value-net tie-break
+        that bounds the worst case (caps games at 35, no 36s). Plays the daily in
+        ~33.6 guesses on average.
+      </p>
     </div>
-    <script src="popup.js"></script>
   </body>
 </html>

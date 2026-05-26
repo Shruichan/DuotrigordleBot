@@ -1,25 +1,28 @@
 {
   "manifest_version": 3,
   "name": "Duotrigordle Bot",
-  "version": "0.1.0",
-  "description": "Suggests near-optimal guesses while playing Duotrigordle. Requires a local solver service.",
+  "version": "0.2.0",
+  "description": "Suggests near-optimal guesses while playing Duotrigordle. Runs entirely in your browser — no setup, no server.",
   "permissions": ["storage"],
-  "host_permissions": [
-    "https://duotrigordle.com/*",
-    "http://127.0.0.1:8765/*",
-    "http://localhost:8765/*"
-  ],
+  "host_permissions": ["https://duotrigordle.com/*"],
   "content_scripts": [
     {
       "matches": ["https://duotrigordle.com/*"],
-      "js": ["content.js"],
+      "js": ["engine.js", "solver.js", "content.js"],
       "css": ["overlay.css"],
       "run_at": "document_idle"
     }
   ],
-  "background": {
-    "service_worker": "background.js"
-  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "data/solutions_default.txt",
+        "data/valid_guesses.txt",
+        "data/value_net.bin"
+      ],
+      "matches": ["https://duotrigordle.com/*"]
+    }
+  ],
   "action": {
     "default_title": "Duotrigordle Bot",
     "default_popup": "popup.html"
