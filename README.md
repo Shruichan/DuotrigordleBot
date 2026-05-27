@@ -1,46 +1,61 @@
 # DuotrigordleBot
 
-Solver bot for [duotrigordle.com](https://duotrigordle.com) 
+A solver for [duotrigordle.com](https://duotrigordle.com) — 32 Wordle boards at
+once, 37 guesses. It scores every word against all the boards together and plays
+the best one.
+
+The extension and the web demo run the whole thing **in your browser** — no
+server, nothing to install past the extension itself.
+
+- **Web demo + install steps:** https://shruichan.github.io/DuotrigordleBot/
+- **Extension:** load `extension/` unpacked (see below)
+
+## How it plays
+
+Entropy across all unsolved boards + a bonus for words that are likely to solve
+a board outright. Near-tied candidates get re-ranked by a small value net that
+predicts how many guesses are left, which keeps the worst games short. Plus the
+usual endgame guards (distinct answers, a rhyme-trap override).
+
+2000-game bench on the daily distribution:
+
+| | mean | max | 36s |
+|---|---|---|---|
+| tail-averse (default) | 33.76 | 35 | 0 |
+| lowest-mean greedy | 33.62 | 36 | 3 |
+
+100% solved, every game under the 37-guess daily limit. See `EXPERIMENTS.md` for
+the value-net / MCTS investigation and why ~33.6 is the floor.
 
 ## Layout
 
 ```
-data/        wordlists scraped from the live bundle
-core/        C++ solver — greedy / beam / endgame strategies
-server/      Python HTTP wrappers around the C++ worker
-extension/   Chrome MV3 extension that overlays suggestions on duotrigordle.com
-ml/          experiments: value net + turn-2 specialist training
+web/         the JS engine (source of truth) + node tests
+extension/   self-contained Chrome MV3 extension (bundles the engine)
+docs/        GitHub Pages site — landing + in-browser solve demo
+data/        word lists + the trained value net
+core/        original C++ solver (greedy / endgame / mcts) + bench
+server/      optional local HTTP wrapper around the C++ worker
+ml/          training scripts (value net, turn-2 specialist)
 ```
 
-## Build
+## Use the extension
+
+1. Grab this repo and open `chrome://extensions`.
+2. Turn on Developer mode → "Load unpacked" → pick the `extension/` folder.
+3. Open duotrigordle.com. The overlay shows the next guess (first one takes a
+   couple seconds while the solver warms up).
+
+## Build the C++ core (optional)
+
+Only needed for benching / the native worker:
 
 ```
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 ninja -C build
+./build/dt_bench -n 2000 -S greedy --opener LITRE -a 300 --la-k 12 --la-exact \
+    --value-net data/value_net_20260527.bin
 ```
 
-Needs: cmake, ninja, OpenMP, GoogleTest, nlohmann_json. On Debian/Ubuntu:
-
-```
-sudo apt install cmake ninja-build libgtest-dev nlohmann-json3-dev
-```
-
-## Run
-
-```
-python3 server/serve.py          # solver on http://127.0.0.1:8765
-```
-
-Load `extension/` as an unpacked Chrome extension, open duotrigordle.com.
-
-## Numbers
-
-Greedy with answer-bonus, 500-game realistic (distinct-answer) bench:
-
-- 100% solve rate (under the Daily 37-guess threshold)
-- Mean: ~33.8 guesses
-- Range: 33–35
-
-
-Headroom over greedy at turn 2 is ~0.35 guesses, the turn-2 specialist (ml/train_turn2.py) captures a small slice of
-that. Late game is essentially optimal under greedy.
+Needs cmake, ninja, OpenMP, GoogleTest, nlohmann_json
+(`sudo apt install cmake ninja-build libgtest-dev nlohmann-json3-dev`).

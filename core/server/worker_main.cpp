@@ -1,6 +1,7 @@
 #include "feedback.hpp"
 #include "game_state.hpp"
 #include "strategy.hpp"
+#include "value_net.hpp"
 #include "wordlists.hpp"
 
 #include <nlohmann/json.hpp>
@@ -165,6 +166,18 @@ json process_request(const dt::Wordlists& w, const json& req) {
 
     dt::GreedyStrategy strat(w, alpha);
 
+    // Tail-averse value-net tie-break for auto mode (matches the browser bot):
+    // re-rank the near-tied top candidates by predicted remaining turns, which
+    // caps games at 35. Loaded once; skipped silently if the file is absent or
+    // in perfect mode (which must stay restricted to answer-only guesses).
+    static dt::ValueNet g_value_net;
+    static bool g_net_ready = g_value_net.load(std::string(DT_DATA_DIR) + "/value_net_20260527.bin");
+    if (g_net_ready && mode != "perfect") {
+        strat.set_value_net(&g_value_net);
+        strat.set_lookahead(12, 5);
+        strat.set_lookahead_exact(true);
+    }
+
     std::vector<int> active_idx;
     for (int b = 0; b < dt::NUM_BOARDS; ++b) {
         if (!state.boards[b].solved && !state.boards[b].candidates.empty()) {
@@ -197,6 +210,16 @@ json process_request(const dt::Wordlists& w, const json& req) {
             top.insert(top.begin(), *litre);
             if (static_cast<int>(top.size()) > top_k) top.resize(top_k);
         }
+    }
+
+    // In auto mode, the headline pick is the strategy's actual decision (which
+    // applies the exact-V tie-break + endgame guards); promote it to the front.
+    if (g_net_ready && mode != "perfect" && !active_idx.empty() && state.guesses_used > 0) {
+        dt::WordIdx best = strat.choose_guess(state);
+        auto it = std::find(top.begin(), top.end(), best);
+        if (it != top.end()) top.erase(it);
+        top.insert(top.begin(), best);
+        if (static_cast<int>(top.size()) > top_k) top.resize(top_k);
     }
 
     json suggestions = json::array();
