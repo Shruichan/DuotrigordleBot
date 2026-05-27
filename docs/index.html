@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Duotrigordle Bot — a near-optimal solver for 32 simultaneous Wordles</title>
+  <meta name="description" content="An entropy-greedy solver for Duotrigordle that plays all 32 boards at once, averaging ~33.6 guesses with a hard cap at 35. Runs in your browser." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <h1>Solve all <span class="accent">32 boards</span> of Duotrigordle,<br />in about 33.6 guesses.</h1>
+      <p class="lede">
+        A solver that scores every word against all thirty-two boards at once — entropy
+        plus a learned value-net tie-break that caps the worst game at 35 guesses. No
+        backend, no setup: it runs entirely in your browser.
+      </p>
+      <div class="cta">
+        <a class="btn primary" href="#install">Install the extension</a>
+        <a class="btn ghost" href="#demo">Watch it solve →</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="n">33.62</div><div class="l">mean guesses</div></div>
+        <div class="stat"><div class="n">35</div><div class="l">worst case (no 36s)</div></div>
+        <div class="stat"><div class="n">37</div><div class="l">daily guess limit</div></div>
+        <div class="stat"><div class="n">100%</div><div class="l">solved (20k games)</div></div>
+      </div>
+    </div>
+  </header>
+
+  <section id="demo">
+    <div class="wrap">
+      <h2>Watch it solve</h2>
+      <p class="sub">
+        Paste 32 five-letter answers (or roll a random set) and watch the bot play the
+        whole game — the same engine the extension uses, running right here.
+      </p>
+      <div class="demo-card">
+        <div class="demo-controls">
+          <input id="answers" placeholder="32 comma-separated answers, or leave blank for random" />
+          <button class="btn ghost" id="randomBtn">Random</button>
+          <button class="btn primary" id="solveBtn" disabled>Solve</button>
+        </div>
+        <div class="progress"><i id="bar"></i></div>
+        <div class="demo-status" id="status">loading solver…</div>
+        <div class="boards-grid" id="grid"></div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="wrap">
+      <h2>How well does it play?</h2>
+      <p class="sub">2000-game benchmark on the daily answer distribution. Two operating points on one risk dial.</p>
+      <table class="results">
+        <thead>
+          <tr><th>strategy</th><th>mean</th><th>max</th><th>33s</th><th>34s</th><th>35s</th><th>36s</th></tr>
+        </thead>
+        <tbody>
+          <tr class="best">
+            <td>Tail-averse <span class="tag">default</span></td>
+            <td>33.76</td><td>35</td><td>548</td><td>1382</td><td>67</td><td>0</td>
+          </tr>
+          <tr>
+            <td>Lowest-mean greedy</td>
+            <td>33.62</td><td>36</td><td>831</td><td>1071</td><td>87</td><td>3</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="sub" style="margin-top:16px">
+        Mean and tail trade off against each other: the value-net tie-break gives up a
+        sliver of average (+0.14) to erase every 36-guess game and trim the 35s. The
+        remaining ~3% of 35s are structural — some daily answer sets force several
+        simultaneous coin-flips no strategy can dodge.
+      </p>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="sub">One guess is scored against all 32 boards together.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="num">01</div><h3>Entropy across boards</h3>
+          <p>Each candidate word is scored by how much it splits the remaining answer
+             sets — summed over every unsolved board.</p>
+        </div>
+        <div class="step">
+          <div class="num">02</div><h3>Solve bonus</h3>
+          <p>A weighted bonus rewards words likely to outright solve a board, so the bot
+             banks boards instead of only gathering information.</p>
+        </div>
+        <div class="step">
+          <div class="num">03</div><h3>Value-net tie-break</h3>
+          <p>Near-tied top candidates are re-ranked by a tiny neural net that predicts
+             remaining turns — the risk-averse pick bounds the worst case.</p>
+        </div>
+        <div class="step">
+          <div class="num">04</div><h3>Endgame guards</h3>
+          <p>Distinct-answer constraints and a rhyme-trap override keep single-board
+             50/50s from blowing up into long tails.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install the extension</h2>
+      <p class="sub">Auto-detects the board on duotrigordle.com and overlays the next guess. Chrome / Edge / Brave.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="num">01</div><h3>Get the files</h3>
+          <p>Download the repo and find the <code>extension/</code> folder
+             (<a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank">GitHub</a>).</p>
+        </div>
+        <div class="step">
+          <div class="num">02</div><h3>Load unpacked</h3>
+          <p>Open <code>chrome://extensions</code>, turn on Developer mode, click
+             “Load unpacked,” and pick the <code>extension/</code> folder.</p>
+        </div>
+        <div class="step">
+          <div class="num">03</div><h3>Play</h3>
+          <p>Open <a href="https://duotrigordle.com" target="_blank">duotrigordle.com</a> —
+             the overlay shows the suggested guess. First pick takes a couple seconds
+             while the solver warms up.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      Duotrigordle Bot · runs fully client-side · not affiliated with duotrigordle.com.
+      <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank">Source on GitHub</a>.
+    </div>
+  </footer>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
