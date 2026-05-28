@@ -439,14 +439,12 @@
       const chosen = this.chooseGuess(state);
       const es = this._expectedSolves(active, state);
 
-      // Rank the rest by greedy score for the alternatives list.
+      // Rank the rest by greedy score for the alternatives list. Even on the
+      // forced-opener turn we still compute the score-sorted list so the top-N
+      // panel has real alternatives to show next to the chosen pick.
       const scored = [];
-      if (state.guessesUsed === 0 && this.opener >= 0) {
-        scored.push([chosen, Infinity]);
-      } else {
-        for (let g = 0; g < this.G; g++) scored.push([g, this._scoreGuess(g, active, state, es)]);
-        scored.sort((a, b) => b[1] - a[1]);
-      }
+      for (let g = 0; g < this.G; g++) scored.push([g, this._scoreGuess(g, active, state, es)]);
+      scored.sort((a, b) => b[1] - a[1]);
       const couldSolve = (g) => {
         const sol = this.guessToSol[g];
         if (sol < 0) return [];
@@ -547,5 +545,47 @@
     }
   }
 
-  return { Engine, computeFeedback, NUM_BOARDS, ALL_GREEN };
+  // std::mt19937 port — exact-byte match with the C++ daily picker so the
+  // website can derive the 32 daily answers from a duotrigordle game number.
+  function MT19937(seed) {
+    const s = new Uint32Array(624);
+    s[0] = seed >>> 0;
+    for (let i = 1; i < 624; i++) {
+      s[i] = (Math.imul(1812433253, s[i - 1] ^ (s[i - 1] >>> 30)) + i) >>> 0;
+    }
+    let idx = 624;
+    function twist() {
+      for (let i = 0; i < 624; i++) {
+        const y = ((s[i] & 0x80000000) | (s[(i + 1) % 624] & 0x7fffffff)) >>> 0;
+        let v = s[(i + 397) % 624] ^ (y >>> 1);
+        if (y & 1) v ^= 0x9908b0df;
+        s[i] = v >>> 0;
+      }
+      idx = 0;
+    }
+    return function next() {
+      if (idx >= 624) twist();
+      let y = s[idx++];
+      y ^= y >>> 11;
+      y ^= (y << 7) & 0x9d2c5680;
+      y ^= (y << 15) & 0xefc60000;
+      y ^= y >>> 18;
+      return y >>> 0;
+    };
+  }
+
+  // Same algorithm as core/src/simulator.cpp::daily_answers — pulls 32 distinct
+  // indices from std::mt19937(gameId) % numSolutions.
+  function dailyAnswers(gameId, numSolutions) {
+    const rng = MT19937(gameId);
+    const seen = new Uint8Array(numSolutions);
+    const out = [];
+    while (out.length < 32) {
+      const i = rng() % numSolutions;
+      if (!seen[i]) { seen[i] = 1; out.push(i); }
+    }
+    return out;
+  }
+
+  return { Engine, computeFeedback, dailyAnswers, MT19937, NUM_BOARDS, ALL_GREEN };
 });
