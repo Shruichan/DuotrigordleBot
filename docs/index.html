@@ -13,31 +13,30 @@
 </head>
 <body>
   <main>
-    <header class="intro">
-      <p class="lede">
-        <b>Duotrigordle Bot</b> — a solver for the daily 32-Wordle on
-        <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a>.
-        Plays it in <b>33–35 guesses</b> on average, runs entirely in your browser.
-        <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">source on GitHub</a>.
-      </p>
-    </header>
+    <p class="intro">
+      <b>Duotrigordle Bot</b> — a solver for the daily 32-Wordle on
+      <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a>.
+      Plays it in <b>33–35 guesses</b>, runs in your browser.
+      <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">source</a>.
+    </p>
 
     <section class="solver">
       <div class="tabs" role="tablist">
         <button class="tab active" data-mode="watch">watch</button>
         <button class="tab" data-mode="practice">practice</button>
-        <button class="tab" data-mode="daily">help my daily</button>
+        <button class="tab" data-mode="daily">daily #</button>
+        <button class="tab" data-mode="byhand">by hand</button>
       </div>
 
       <div class="card">
-        <!-- WATCH: auto-solve a random game -->
+        <!-- WATCH -->
         <div class="controls mode-watch">
-          <input id="answers" placeholder="32 answers comma-separated — or just shuffle" spellcheck="false" />
+          <input id="answers" placeholder="32 answers comma-separated, or just shuffle" spellcheck="false" />
           <button class="btn ghost" id="shuffleBtn">shuffle</button>
           <button class="btn primary" id="playBtn" disabled>play</button>
         </div>
 
-        <!-- PRACTICE: you play, bot suggests -->
+        <!-- PRACTICE -->
         <div class="controls mode-practice" hidden>
           <input id="practiceWord" placeholder="type a 5-letter guess" maxlength="5" spellcheck="false" />
           <button class="btn ghost" id="useBotBtn" disabled>use bot's pick</button>
@@ -45,11 +44,19 @@
           <button class="btn ghost" id="newPracticeBtn">new game</button>
         </div>
 
-        <!-- DAILY: paste daily # + your played guesses, get next picks -->
+        <!-- DAILY -->
         <div class="controls mode-daily" hidden>
           <input id="gameId" type="number" min="1" placeholder="daily #" />
           <input id="playedGuesses" placeholder="your guesses, comma-separated" spellcheck="false" />
-          <button class="btn primary" id="analyzeBtn" disabled>next picks</button>
+          <button class="btn primary" id="analyzeBtn" disabled>show next picks</button>
+        </div>
+
+        <!-- BY HAND -->
+        <div class="controls mode-byhand" hidden>
+          <input id="byhandWord" placeholder="type the word you played" maxlength="5" spellcheck="false" />
+          <button class="btn ghost" id="byhandClear">clear row</button>
+          <button class="btn primary" id="byhandSubmit" disabled>submit row</button>
+          <button class="btn ghost" id="byhandReset">reset game</button>
         </div>
 
         <div class="progress"><i id="bar"></i></div>
@@ -59,12 +66,9 @@
           <div class="boards-pane">
             <div class="head">
               <span class="label">boards</span>
-              <span class="info"><b id="solvedCount">0</b>/32 solved · guess <b id="guessNum">0</b>/37</span>
+              <span class="info"><b id="solvedCount">0</b>/32 · guess <b id="guessNum">0</b>/37</span>
             </div>
             <div class="boards-grid" id="grid"></div>
-            <p class="legend">
-              green cells = letters the bot has pinned down at that position. number = candidates left for that board.
-            </p>
           </div>
 
           <aside class="thinking-pane">
@@ -78,15 +82,10 @@
           </aside>
         </div>
       </div>
-
-      <p class="tip" id="modeTip">
-        Roll random answers and watch the bot play.
-      </p>
     </section>
 
     <section class="results">
       <h2>How it does</h2>
-      <p>2000 daily-style games. Two configs on the same risk dial.</p>
       <table>
         <thead><tr><th></th><th>mean</th><th>max</th><th>33s</th><th>34s</th><th>35s</th><th>36s</th></tr></thead>
         <tbody>
@@ -94,15 +93,15 @@
           <tr><td>lowest-mean greedy</td><td><b>33.62</b></td><td>36</td><td>831</td><td>1071</td><td>87</td><td>3</td></tr>
         </tbody>
       </table>
-      <p class="footnote">The ~3% of 35-guess games are structural — see <a href="https://github.com/Shruichan/DuotrigordleBot/blob/main/EXPERIMENTS.md" target="_blank" rel="noopener">EXPERIMENTS.md</a> for why search doesn't crack it.</p>
+      <p class="footnote">~3% of 35s are structural — <a href="https://github.com/Shruichan/DuotrigordleBot/blob/main/EXPERIMENTS.md" target="_blank" rel="noopener">EXPERIMENTS.md</a> shows why search doesn't crack it.</p>
     </section>
 
     <section class="install">
       <h2>Use it on the real site</h2>
       <ol>
         <li>Clone the <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">repo</a>; you only need <code>extension/</code>.</li>
-        <li>Open <code>chrome://extensions</code>, turn on developer mode, <em>Load unpacked</em>, pick that folder.</li>
-        <li>Open <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a> — the overlay shows the next guess.</li>
+        <li><code>chrome://extensions</code> → developer mode → <em>Load unpacked</em> → pick that folder.</li>
+        <li>Open <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a>; the overlay shows the next guess.</li>
       </ol>
     </section>
   </main>

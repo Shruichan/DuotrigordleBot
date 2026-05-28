@@ -1,5 +1,4 @@
-/* Duotrigordle Bot — site styles. Light, direct, Wordle-canonical colors.
-   No big polished hero — feels like a personal project page. */
+/* Duotrigordle Bot — direct, light, Wordle-canonical. */
 
 :root {
   --bg: #ffffff;
@@ -10,10 +9,10 @@
   --muted: #787c7e;
 
   --green: #6aaa64;
-  --green-soft: #c1e0bc;
   --yellow: #c9b458;
   --grey: #787c7e;
   --tile-border: #d3d6da;
+  --tile-empty: #ffffff;
 
   --accent: #1a73e8;
 
@@ -30,18 +29,17 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+a { color: var(--accent); text-underline-offset: 2px; text-decoration-thickness: 1px; }
 a:hover { color: var(--ink); }
 b, strong { font-weight: 600; }
 
-main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
+main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
 
-.intro { margin-bottom: 22px; }
-.intro .lede { margin: 0; font-size: 16px; color: var(--ink-soft); }
-.intro .lede b { color: var(--ink); }
+.intro { margin: 0 0 18px; font-size: 15px; color: var(--ink-soft); }
+.intro b { color: var(--ink); }
 
 /* tabs */
-.tabs { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+.tabs { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
 .tab {
   appearance: none; background: #fff; color: var(--ink-soft);
   border: 0; border-right: 1px solid var(--rule);
@@ -54,16 +52,11 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 .tab.active { background: var(--ink); color: #fff; }
 
 /* card */
-.card {
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  background: #fff;
-  padding: 16px;
-}
+.card { border: 1px solid var(--rule); border-radius: 4px; background: #fff; padding: 16px; }
 
 .controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .controls input {
-  flex: 1; min-width: 200px;
+  flex: 1; min-width: 180px;
   background: #fff; color: var(--ink);
   border: 1px solid var(--rule); border-radius: 3px;
   font: 13px var(--mono); padding: 8px 10px;
@@ -71,10 +64,11 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 }
 .controls input:focus { border-color: var(--ink); }
 .controls input[type=number] { flex: 0 0 110px; min-width: 110px; }
-.controls input#practiceWord {
+.controls input#practiceWord, .controls input#byhandWord {
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   font-weight: 700;
+  flex: 0 0 200px; min-width: 200px;
 }
 
 .btn {
@@ -90,22 +84,16 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 .btn.primary { background: var(--ink); color: #fff; }
 .btn.primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn[disabled] { opacity: .4; cursor: not-allowed; background: #fff; color: var(--ink); }
-.btn[disabled]:hover { background: #fff; }
 
 .progress { height: 2px; background: var(--paper); margin-top: 10px; border-radius: 1px; overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--ink); transition: width .15s; }
-.status {
-  margin-top: 10px;
-  font: 12px var(--mono); color: var(--muted);
-  min-height: 16px;
-}
+.status { margin-top: 10px; font: 12px var(--mono); color: var(--muted); min-height: 16px; }
 .status b { color: var(--ink); }
 
-/* layout: boards left, top-5 right */
 .layout {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   gap: 20px;
 }
 @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
@@ -122,66 +110,74 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 }
 .info { font: 12px var(--mono); color: var(--ink-soft); }
 .info b { color: var(--ink); }
-
 .pill {
-  display: inline-block;
-  padding: 1px 7px;
+  display: inline-block; padding: 1px 7px;
   border: 1px solid var(--rule); border-radius: 10px;
   font: 11px var(--mono);
 }
 .pill b { color: var(--ink); }
 
-/* mini boards: 5-cell locked-letter row + count */
+/* ============================================================
+   mini-boards: Wordle-style stack of colored rows per board
+   ============================================================ */
 .boards-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 8px;
 }
 @media (max-width: 760px) { .boards-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 380px) { .boards-grid { grid-template-columns: repeat(3, 1fr); } }
 
 .mini {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: flex; flex-direction: column; align-items: center;
   gap: 3px;
-  padding: 4px 2px;
 }
-.mini .lk {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1px;
+.mini .stack {
   width: 100%;
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 2px;
 }
-.mini .lk b {
+.mini .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+.mini .cell {
   aspect-ratio: 1 / 1;
   display: grid; place-items: center;
-  background: var(--paper);
+  background: var(--tile-empty);
   border: 1px solid var(--tile-border);
-  border-radius: 2px;
-  font: 700 12px/1 var(--mono);
-  color: var(--muted);
+  border-radius: 1px;
+  font: 700 10px/1 var(--mono);
+  color: var(--ink);
   min-width: 0;
 }
-.mini .lk b.f { background: var(--green); border-color: var(--green); color: #fff; }
-.mini .lk b.q { color: transparent; }
+/* color classes — b/y/g (black=grey eliminated, y=yellow, g=green) */
+.mini .cell.b { background: var(--grey); border-color: var(--grey); color: #fff; }
+.mini .cell.y { background: var(--yellow); border-color: var(--yellow); color: #fff; }
+.mini .cell.g { background: var(--green); border-color: var(--green); color: #fff; }
+.mini .cell.empty { background: transparent; border-color: var(--rule); }
+
 .mini .ct {
   font: 500 10px var(--mono);
   color: var(--ink-soft);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }
-.mini.solved .lk b { background: var(--green); border-color: var(--green); color: #fff; }
 .mini.solved .ct { color: var(--green); font-weight: 700; }
-.mini.justsolved .lk b { animation: pop .4s ease; }
-@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
-
-.legend {
-  font: 11px var(--mono); color: var(--muted);
-  margin: 10px 0 0;
-  line-height: 1.5;
+.mini.justsolved .row:last-child .cell { animation: pop .4s ease; }
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
-/* top 5 candidates */
+/* By-hand input row: clickable to cycle colors */
+.mini .row.input .cell { cursor: pointer; }
+.mini .row.input .cell.empty { background: #fff; border-style: dashed; color: var(--muted); }
+.mini .row.input { outline: 1px solid transparent; }
+.mini.locked .row.input { display: none; }  /* solved boards: no input row */
+
+/* ============================================================
+   top-5 candidates panel
+   ============================================================ */
 .thinking-pane { min-width: 0; }
 .cands { list-style: none; padding: 0; margin: 0 0 12px; }
 .cand {
@@ -194,11 +190,7 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 }
 .cand:last-child { border-bottom: 0; }
 .cand .rank { font: 11px var(--mono); color: var(--muted); }
-.cand .word {
-  display: inline-grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 3px;
-}
+.cand .word { display: inline-grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
 .cand .word .ct {
   display: grid; place-items: center;
   background: #fff; border: 1px solid var(--tile-border);
@@ -217,10 +209,7 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 .cand.placeholder { opacity: .45; }
 .cand.placeholder .word .ct { color: var(--muted); border-style: dashed; }
 .cand.flash { animation: flash .45s ease; }
-@keyframes flash {
-  0% { background: rgba(106, 170, 100, 0.32); }
-  100% { background: rgba(106, 170, 100, 0.07); }
-}
+@keyframes flash { 0% { background: rgba(106, 170, 100, 0.32); } 100% { background: rgba(106, 170, 100, 0.07); } }
 .cand.clickable { cursor: pointer; }
 .cand.clickable:hover { background: var(--paper); }
 
@@ -236,23 +225,12 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
 .log .plus { color: var(--green); font-weight: 700; }
 .log .you { color: var(--accent); }
 
-.tip {
-  margin: 14px 0 0;
-  font: 13px var(--sans);
-  color: var(--ink-soft);
-}
-
-/* results table */
+/* results / install */
 .results, .install { margin-top: 44px; }
-.results h2, .install h2 {
-  font-size: 18px; font-weight: 600;
-  margin: 0 0 8px; letter-spacing: -0.005em;
-}
-.results p, .install p { margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; }
+.results h2, .install h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
 .results table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .results th, .results td {
-  text-align: right;
-  padding: 10px 8px;
+  text-align: right; padding: 10px 8px;
   border-bottom: 1px solid var(--rule);
   font-variant-numeric: tabular-nums;
 }
@@ -262,7 +240,6 @@ main { max-width: 880px; margin: 0 auto; padding: 28px 24px 8px; }
   letter-spacing: 0.1em; text-transform: uppercase;
   border-bottom-color: var(--ink);
 }
-.results td b { font-weight: 700; }
 .results tr.best td { background: rgba(106, 170, 100, 0.06); }
 .muted { color: var(--muted); }
 .footnote { font-size: 13px; color: var(--ink-soft); margin-top: 10px; }
@@ -276,7 +253,7 @@ code {
 }
 
 footer {
-  margin: 60px auto 28px; max-width: 880px; padding: 16px 24px;
+  margin: 60px auto 28px; max-width: 920px; padding: 16px 24px;
   border-top: 1px solid var(--rule);
   display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   font: 11px var(--mono); color: var(--muted);
@@ -285,8 +262,9 @@ footer {
 @media (max-width: 520px) {
   main { padding: 18px 16px 0; }
   .card { padding: 12px; }
-  .boards-grid { gap: 6px; }
-  .cand .word .ct { font-size: 12px; min-width: 20px; }
   .tabs { display: flex; width: 100%; }
   .tab { flex: 1; padding: 8px 4px; }
+  .controls input#practiceWord, .controls input#byhandWord { flex: 1; min-width: 0; }
+  .mini .cell { font-size: 8px; }
+  .cand .word .ct { font-size: 12px; min-width: 20px; }
 }
