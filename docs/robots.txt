@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shruichan.github.io/DuotrigordleBot/sitemap.xml

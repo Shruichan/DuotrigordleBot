@@ -1,8 +1,9 @@
-# DuotrigordleBot
+# Duotrigordle Bot
 
-A solver for [duotrigordle.com](https://duotrigordle.com) — 32 Wordle boards at
-once, 37 guesses. It scores every word against all the boards together and plays
-the best one.
+A solver and helper for [duotrigordle.com](https://duotrigordle.com) — the daily
+32-Wordle. Plays all 32 boards together, scoring every word against the whole
+grid and picking the best one. Also known as: Duotrigordle solver, Duotrigordle
+helper, Duotrigordle assistant.
 
 The extension and the web demo run the whole thing **in your browser** — no
 server, nothing to install past the extension itself.

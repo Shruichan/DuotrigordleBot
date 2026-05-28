@@ -38,6 +38,15 @@ main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
 .intro { margin: 0 0 18px; font-size: 15px; color: var(--ink-soft); }
 .intro b { color: var(--ink); }
 
+/* Visually hidden but still announced by screen readers and indexed by crawlers. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px; border: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 /* tabs */
 .tabs { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
 .tab {
