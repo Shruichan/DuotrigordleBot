@@ -29,6 +29,9 @@
 
   let engine = null, solutions = [];
   let running = false, mode = "watch";
+  // Top-5 on a fresh state is the same every time — score it once at init so
+  // tab switches don't trigger a 500ms full re-rank for no reason.
+  let freshTop5 = null;
 
   // Per-board "history" lives on each board: array of {word, pattern}. We add
   // a row after every guess for boards that were unsolved when it was played.
@@ -114,10 +117,11 @@
       el.querySelectorAll(".row.input .cell").forEach((c) => {
         const p = parseInt(c.dataset.p, 10);
         c.addEventListener("click", () => cycleByhandCell(b, p));
-        // apply current digit color (if any)
+        // Colour from the current digit. d=0 is the "absent/grey" entry of the
+        // pattern triple, so we show grey by default — same as duotrigordle.
         const d = byhandDigits ? byhandDigits[b][p] : 0;
         c.classList.remove("empty", "b", "y", "g");
-        c.classList.add(d === 0 ? "empty" : digitClass(d));
+        c.classList.add(digitClass(d));
       });
     }
   }
@@ -226,7 +230,8 @@
     setStatus("ready.");
     playBtn.disabled = false; analyzeBtn.disabled = false;
     answersInput.value = pickRandom().join(",");
-    renderCands(engine.suggest(engine.freshState(), 5).suggestions, 0);
+    freshTop5 = engine.suggest(engine.freshState(), 5);
+    renderCands(freshTop5.suggestions, 0);
     turnNum.textContent = "01";
   }
 
@@ -291,7 +296,9 @@
     practiceWord.disabled = false;
     submitWord.disabled = true;
     useBotBtn.disabled = false;
-    refreshPracticePicks();
+    // Fresh state -> reuse the cached top-5 instead of re-scoring 14857 guesses.
+    if (freshTop5) renderCands(freshTop5.suggestions, 0, { clickable: true });
+    turnNum.textContent = "01";
     setStatus(`new game · turn <b>1</b>/37`);
     practiceWord.focus();
   }
@@ -399,10 +406,13 @@
     byhandWord.value = "";
     byhandSubmit.disabled = true;
     log.innerHTML = "";
-    clearAll();
-    renderCands(engine.suggest(byhandState, 5).suggestions, 0);
+    if (freshTop5) renderCands(freshTop5.suggestions, 0, { clickable: true });
     turnNum.textContent = "01";
     setStatus("turn <b>1</b>");
+    // Paint the editable input row right away so the cells are clickable before
+    // the user types anything — placeholder dots will fill in with letters as
+    // soon as they start typing.
+    updateByhandRender();
     byhandWord.focus();
   }
   function updateByhandRender() {
@@ -455,6 +465,8 @@
     turnNum.textContent = String(byhandState.guessesUsed + 1).padStart(2, "0");
     renderCands(sug.suggestions, 0, { clickable: true });
     setStatus(`turn <b>${byhandState.guessesUsed + 1}</b> · <b>${solved}</b>/32`);
+    // Keep the editable row painted so cells stay clickable for the next turn.
+    updateByhandRender();
     byhandWord.focus();
   }
 
