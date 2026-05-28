@@ -31,3 +31,7 @@ data/value_train_*/
 scripts/*_run.out
 # Experimental quantile nets (mean-trained value_net_20260527.bin is the keeper)
 data/value_net_q*.bin
+
+# daily-trained experimental net (negative result, kept locally for reference)
+data/value_net_daily.bin
+data/value_train_daily/

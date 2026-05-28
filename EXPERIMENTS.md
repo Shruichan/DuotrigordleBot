@@ -13,8 +13,29 @@ Daily picker (MT19937) gives the same distribution as random distinct sampling.
   in ≤34. Proven by three risk-averse variants all flooring at ~67–71.
 - **Mean and tail are one risk dial.** You cannot have "majority 33s" *and*
   "no tail" — they are opposite ends of the same tradeoff.
-- **Best tail-averse config** (`--la-exact`): mean **33.76**, **max 35 (zero 36s)**,
-  67 thirty-fives — at a cost of +0.14 mean and fewer lucky 33s.
+- **Best tail-averse config** (`--la-exact`): mean **33.75** on the daily distribution
+  (33.76 on uniform random samples), shaves ~30 of the 35s and most of the 36s
+  at a cost of +0.13 mean and fewer lucky 33s. Caps games at 35 the vast
+  majority of the time but doesn't *eliminate* 36s — there's a ~0.05%
+  structural floor of catastrophic seeds across any 2k-game sample.
+
+## Followup — daily-specialized training (negative result)
+
+Trained a value-net on greedy self-play across the historical daily-MT19937
+sequence (IDs 1..1500) instead of random distinct samples, on the hypothesis
+that the net could pick up daily-specific seed quirks. It didn't:
+
+| config (benched on daily IDs 1..2000) | mean | max | 35s | 36s |
+|---|---|---|---|---|
+| exact-V random-trained (current default) | 33.75 | 36 | 78 | 1 |
+| exact-V daily-trained                    | 33.73 | 36 | 78 | 2 |
+
+Within noise. Both training distributions sample 32 distinct words from the
+same 2653-solution pool, so the conditional `state → remaining-turns` density
+the net learns is nearly identical. The bottleneck remains: top-K greedy
+candidates are too close in true value for *any* net to differentiate
+reliably. We don't ship the daily-trained net; the gen-side `--daily START END`
+flag is left in `dt_gen_value_data` for future experiments.
 
 ## Results table
 

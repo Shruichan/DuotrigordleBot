@@ -17,12 +17,12 @@ a board outright. Near-tied candidates get re-ranked by a small value net that
 predicts how many guesses are left, which keeps the worst games short. Plus the
 usual endgame guards (distinct answers, a rhyme-trap override).
 
-2000-game bench on the daily distribution:
+2000-game bench against the actual daily MT19937 distribution (IDs 1..2000):
 
-| | mean | max | 36s |
-|---|---|---|---|
-| tail-averse (default) | 33.76 | 35 | 0 |
-| lowest-mean greedy | 33.62 | 36 | 3 |
+| | mean | max | 35s | 36s |
+|---|---|---|---|---|
+| tail-averse (default) | 33.75 | 36 | 78 | 1 |
+| lowest-mean greedy | 33.62 | 36 | 102 | 5 |
 
 100% solved, every game under the 37-guess daily limit. See `EXPERIMENTS.md` for
 the value-net / MCTS investigation and why ~33.6 is the floor.

@@ -1,0 +1,8 @@
+==== daily experiment 2026-05-28T01:10:08-07:00 ====
+[1/4] gen daily IDs 1..1500 -> data/value_train_daily
+[2/4] train -> data/value_net_daily.bin
+[3/4] bench daily IDs 1..2000 (3 configs)
+baseline-greedy (no net)         mean=33.62 max=36  32:7 33:861 34:1025 35:102 36:5 
+exact-V random-trained           mean=33.75 max=36  32:5 33:577 34:1339 35:78 36:1 
+exact-V DAILY-trained            mean=33.73 max=36  32:6 33:606 34:1308 35:78 36:2 
+[4/4] done 2026-05-28T01:12:01-07:00

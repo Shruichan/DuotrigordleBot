@@ -113,6 +113,10 @@ int main(int argc, char** argv) {
     std::string out_dir = "data/value_train";
     int max_total_guesses = 50;
     int log_every = 500;
+    // Daily mode: iterate over the actual MT19937(id) historical-daily sequence
+    // rather than random distinct samples. When daily_start > 0, num_games is
+    // overridden by (daily_end - daily_start + 1).
+    int daily_start = 0, daily_end = 0;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "-n" && i + 1 < argc) num_games = std::atoi(argv[++i]);
@@ -122,11 +126,19 @@ int main(int argc, char** argv) {
         else if (a == "-p" && i + 1 < argc) pool = argv[++i];
         else if (a == "--opener" && i + 1 < argc) opener = argv[++i];
         else if (a == "--log-every" && i + 1 < argc) log_every = std::atoi(argv[++i]);
+        else if (a == "--daily" && i + 2 < argc) {
+            daily_start = std::atoi(argv[++i]);
+            daily_end = std::atoi(argv[++i]);
+        }
         else {
             std::cerr << "usage: dt_gen_value_data [-n games] [-s seed] [-o out]"
-                         " [-a alpha] [-p pool] [--opener WORD] [--log-every N]\n";
+                         " [-a alpha] [-p pool] [--opener WORD] [--log-every N]"
+                         " [--daily START END]\n";
             return 1;
         }
+    }
+    if (daily_start > 0 && daily_end >= daily_start) {
+        num_games = daily_end - daily_start + 1;
     }
 
     dt::Wordlists w(DT_DATA_DIR, pool);
@@ -148,16 +160,23 @@ int main(int argc, char** argv) {
     auto t_start = std::chrono::steady_clock::now();
 
     std::cerr << "Generating value-net training data: " << num_games << " games, "
-              << "opener=" << opener << " alpha=" << alpha << "\n";
+              << "opener=" << opener << " alpha=" << alpha;
+    if (daily_start > 0) std::cerr << " (daily IDs " << daily_start << ".." << daily_end << ")";
+    std::cerr << "\n";
 
     for (int g = 0; g < num_games; ++g) {
-        // Pick distinct answers
+        // Pick distinct answers — either from the daily MT19937 sequence or
+        // by random uniform sampling.
         std::array<dt::WordIdx, dt::NUM_BOARDS> answers{};
-        std::fill(picked_buf.begin(), picked_buf.end(), 0);
-        for (auto& a : answers) {
-            dt::WordIdx x;
-            do { x = pick(rng); } while (picked_buf[x]);
-            picked_buf[x] = 1; a = x;
+        if (daily_start > 0) {
+            answers = dt::daily_answers(w, static_cast<uint32_t>(daily_start + g));
+        } else {
+            std::fill(picked_buf.begin(), picked_buf.end(), 0);
+            for (auto& a : answers) {
+                dt::WordIdx x;
+                do { x = pick(rng); } while (picked_buf[x]);
+                picked_buf[x] = 1; a = x;
+            }
         }
 
         // Play full game with greedy, recording each non-terminal state and its final length.
