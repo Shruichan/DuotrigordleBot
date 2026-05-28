@@ -13,14 +13,12 @@
 
   // watch
   const answersInput = $("answers"), playBtn = $("playBtn"), shuffleBtn = $("shuffleBtn");
-  // practice
-  const practiceWord = $("practiceWord"), useBotBtn = $("useBotBtn"),
-        submitWord = $("submitWord"), newPracticeBtn = $("newPracticeBtn");
-  // daily
-  const gameIdInput = $("gameId"), playedInput = $("playedGuesses"), analyzeBtn = $("analyzeBtn");
-  // byhand
-  const byhandWord = $("byhandWord"), byhandSubmit = $("byhandSubmit"),
-        byhandClear = $("byhandClear"), byhandReset = $("byhandReset");
+  // practice — Enter on the word submits; clicking a top-5 row fills the word.
+  const practiceWord = $("practiceWord"), newPracticeBtn = $("newPracticeBtn");
+  // daily — auto-analyses on input; dailyNext appends one guess at a time.
+  const gameIdInput = $("gameId"), playedInput = $("playedGuesses"), dailyNext = $("dailyNext");
+  // by hand — word + click-color grid + one submit button. switch tabs to reset.
+  const byhandWord = $("byhandWord"), byhandSubmit = $("byhandSubmit");
 
   const NUM_BOARDS = 32;
   const ALL_GREEN = 242;
@@ -165,7 +163,7 @@
     if (opts.clickable) {
       cands.querySelectorAll(".cand.clickable").forEach((el) => {
         el.addEventListener("click", () => {
-          if (mode === "practice") { practiceWord.value = el.dataset.word; submitWord.disabled = false; }
+          if (mode === "practice") { practiceWord.value = el.dataset.word; practiceWord.focus(); }
           else if (mode === "byhand") { byhandWord.value = el.dataset.word; updateByhandRender(); }
         });
       });
@@ -233,7 +231,7 @@
     await engine.buildAsync((f) => { bar.style.width = (f * 100).toFixed(0) + "%"; });
     bar.style.width = "100%";
     setStatus("ready.");
-    playBtn.disabled = false; analyzeBtn.disabled = false;
+    playBtn.disabled = false;
     answersInput.value = pickRandom().join(",");
     freshTop5 = engine.suggest(engine.freshState(), 5);
     renderCands(freshTop5.suggestions, 0);
@@ -299,8 +297,6 @@
     clearAll();
     practiceWord.value = "";
     practiceWord.disabled = false;
-    submitWord.disabled = true;
-    useBotBtn.disabled = false;
     // Fresh state -> reuse the cached top-5 instead of re-scoring 14857 guesses.
     if (freshTop5) renderCands(freshTop5.suggestions, 0, { clickable: true });
     turnNum.textContent = "01";
@@ -337,34 +333,25 @@
     const youMark = (g === botPick) ? "" : ' <span class="you">(you)</span>';
     logLine(`${String(practiceState.guessesUsed).padStart(2,"0")}. <b>${word}</b>${youMark} · ${solved}/32` + (plus ? ` <span class="plus">+${plus}</span>` : ""));
     practiceWord.value = "";
-    submitWord.disabled = true;
 
     if (solved === NUM_BOARDS) {
       setStatus(`solved in <b>${practiceState.guessesUsed}</b>.`);
-      practiceWord.disabled = true; useBotBtn.disabled = true; placeholderCands(); return;
+      practiceWord.disabled = true; placeholderCands(); return;
     }
     if (practiceState.guessesUsed >= 37) {
       setStatus(`out of guesses — <b>${solved}</b>/32 solved.`);
-      practiceWord.disabled = true; useBotBtn.disabled = true; placeholderCands(); return;
+      practiceWord.disabled = true; placeholderCands(); return;
     }
     setStatus(`turn <b>${practiceState.guessesUsed + 1}</b>/37 · <b>${solved}</b>/32`);
     refreshPracticePicks();
     practiceWord.focus();
-  }
-  function useBotPick() {
-    if (!practiceState) return;
-    const top = engine.suggest(practiceState, 1).suggestions[0];
-    if (!top) return;
-    practiceWord.value = top.word;
-    submitWord.disabled = false;
-    submitPracticeGuess();
   }
 
   // --- DAILY ---------------------------------------------------------------
   function analyzeDaily() {
     if (!engine || running) return;
     const id = parseInt(gameIdInput.value, 10);
-    if (!id || id < 1) { setStatus("enter the daily <b>#</b>."); return; }
+    if (!id || id < 1) return;  // wait quietly for a valid #
     const raw = playedInput.value.trim();
     const played = raw ? raw.split(/[\s,]+/).map((w) => w.trim().toUpperCase()).filter(Boolean) : [];
     const bad = played.filter((w) => !engine.guessIndex.has(w));
@@ -462,11 +449,6 @@
       if (!byhandState.boards[b].solved) { setKfocus(b, p); return; }
     }
   }
-  function clearByhandRow() {
-    if (!byhandDigits) return;
-    byhandDigits = Array.from({ length: NUM_BOARDS }, () => [0,0,0,0,0]);
-    updateByhandRender();
-  }
   function submitByhandRow() {
     if (!engine || !byhandState) return;
     const word = byhandWord.value.trim().toUpperCase();
@@ -512,24 +494,27 @@
   playBtn.addEventListener("click", autoSolve);
 
   newPracticeBtn.addEventListener("click", newPracticeGame);
-  submitWord.addEventListener("click", submitPracticeGuess);
-  useBotBtn.addEventListener("click", useBotPick);
-  practiceWord.addEventListener("input", () => {
-    submitWord.disabled = !/^[A-Za-z]{5}$/.test(practiceWord.value.trim());
-  });
   practiceWord.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !submitWord.disabled) submitPracticeGuess();
+    if (e.key === "Enter" && /^[A-Za-z]{5}$/.test(practiceWord.value.trim())) submitPracticeGuess();
   });
 
-  analyzeBtn.addEventListener("click", analyzeDaily);
+  // Daily auto-analyses on input — bails harmlessly until both # and guesses
+  // are valid. dailyNext appends one guess at a time (Enter to add).
   [gameIdInput, playedInput].forEach((el) =>
-    el.addEventListener("keydown", (e) => { if (e.key === "Enter") analyzeDaily(); }));
+    el.addEventListener("input", () => analyzeDaily()));
+  dailyNext.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const w = dailyNext.value.trim().toUpperCase();
+    if (!/^[A-Z]{5}$/.test(w)) return;
+    const cur = playedInput.value.trim();
+    playedInput.value = cur ? cur + "," + w : w;
+    dailyNext.value = "";
+    analyzeDaily();
+  });
 
   byhandWord.addEventListener("input", updateByhandRender);
   byhandWord.addEventListener("keydown", (e) => { if (e.key === "Enter" && !byhandSubmit.disabled) submitByhandRow(); });
   byhandSubmit.addEventListener("click", submitByhandRow);
-  byhandClear.addEventListener("click", clearByhandRow);
-  byhandReset.addEventListener("click", newByhandGame);
 
   // Keyboard shortcuts for by-hand mode. Only fire when the mode is active and
   // focus isn't in a text input — so typing the word in the input box still

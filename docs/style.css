@@ -173,11 +173,9 @@ main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
 .mini .row.input .cell { cursor: pointer; }
 .mini .row.input .cell.empty { background: #fff; border-style: dashed; color: var(--muted); }
 .mini .row.input { outline: 1px solid transparent; }
-.mini.locked .row.input { display: none; }  /* solved boards: no input row */
+.mini.locked .row.input { display: none; }
 
-/* ============================================================
-   By-hand mode — bigger cells, strong hover, outlined input row
-   ============================================================ */
+/* by-hand mode gets a wider grid + bigger clickable cells */
 .boards-grid.byhand {
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
@@ -185,7 +183,6 @@ main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
 @media (max-width: 760px) { .boards-grid.byhand { grid-template-columns: repeat(2, 1fr); } }
 .boards-grid.byhand .mini { gap: 5px; }
 .boards-grid.byhand .mini .cell { font-size: 15px; border-radius: 2px; }
-
 .boards-grid.byhand .mini .row.input {
   outline: 2px solid var(--ink);
   outline-offset: 3px;
@@ -211,13 +208,21 @@ main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
   transform: scale(0.94);
   filter: brightness(0.95);
 }
-.boards-grid.byhand .mini .row.input .cell.tap {
-  animation: tap .25s ease;
-}
+.boards-grid.byhand .mini .row.input .cell.tap { animation: tap .25s ease; }
 @keyframes tap {
   0%   { transform: scale(1); }
   35%  { transform: scale(1.22); filter: brightness(1.2); }
   100% { transform: scale(1); }
+}
+
+/* The "next guess" appender under daily mode is visually quieter. */
+.controls.sub { margin-top: 6px; }
+.controls.sub input { font-size: 12px; }
+.controls.sub input#dailyNext {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  flex: 0 0 220px;
 }
 
 /* ============================================================

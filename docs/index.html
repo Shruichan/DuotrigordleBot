@@ -24,39 +24,38 @@
       <div class="tabs" role="tablist">
         <button class="tab active" data-mode="watch">watch</button>
         <button class="tab" data-mode="practice">practice</button>
-        <button class="tab" data-mode="daily">daily #</button>
+        <button class="tab" data-mode="daily">daily</button>
         <button class="tab" data-mode="byhand">by hand</button>
       </div>
 
       <div class="card">
-        <!-- WATCH -->
+        <!-- WATCH: auto-solve a random game -->
         <div class="controls mode-watch">
           <input id="answers" placeholder="32 answers comma-separated, or just shuffle" spellcheck="false" />
           <button class="btn ghost" id="shuffleBtn">shuffle</button>
           <button class="btn primary" id="playBtn" disabled>play</button>
         </div>
 
-        <!-- PRACTICE -->
+        <!-- PRACTICE: type a guess, Enter to play. click a top-5 row to fill it. -->
         <div class="controls mode-practice" hidden>
-          <input id="practiceWord" placeholder="type a 5-letter guess" maxlength="5" spellcheck="false" />
-          <button class="btn ghost" id="useBotBtn" disabled>use bot's pick</button>
-          <button class="btn primary" id="submitWord" disabled>submit</button>
+          <input id="practiceWord" placeholder="next guess (Enter to play)" maxlength="5" spellcheck="false" />
           <button class="btn ghost" id="newPracticeBtn">new game</button>
         </div>
 
-        <!-- DAILY -->
+        <!-- DAILY: # + comma-separated guesses; auto-analyzes. -->
         <div class="controls mode-daily" hidden>
           <input id="gameId" type="number" min="1" placeholder="daily #" />
-          <input id="playedGuesses" placeholder="your guesses, comma-separated" spellcheck="false" />
-          <button class="btn primary" id="analyzeBtn" disabled>show next picks</button>
+          <input id="playedGuesses" placeholder="guesses so far, comma-separated" spellcheck="false" />
+        </div>
+        <div class="controls mode-daily sub" hidden>
+          <input id="dailyNext" placeholder="next guess (Enter to append)" maxlength="5" spellcheck="false" />
         </div>
 
-        <!-- BY HAND -->
+        <!-- BY HAND: type your word, click each board's cells to match the colors,
+             submit. Switch tabs to reset. -->
         <div class="controls mode-byhand" hidden>
           <input id="byhandWord" placeholder="type the word you played" maxlength="5" spellcheck="false" />
-          <button class="btn ghost" id="byhandClear">clear row</button>
-          <button class="btn primary" id="byhandSubmit" disabled>submit row</button>
-          <button class="btn ghost" id="byhandReset">reset game</button>
+          <button class="btn primary" id="byhandSubmit" disabled>submit</button>
         </div>
 
         <div class="progress"><i id="bar"></i></div>
