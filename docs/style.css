@@ -169,11 +169,56 @@ main { max-width: 920px; margin: 0 auto; padding: 24px 24px 8px; }
   100% { transform: scale(1); }
 }
 
-/* By-hand input row: clickable to cycle colors */
+/* By-hand input row: clickable / keyboard-focusable to cycle colors */
 .mini .row.input .cell { cursor: pointer; }
 .mini .row.input .cell.empty { background: #fff; border-style: dashed; color: var(--muted); }
 .mini .row.input { outline: 1px solid transparent; }
 .mini.locked .row.input { display: none; }  /* solved boards: no input row */
+
+/* ============================================================
+   By-hand mode — bigger cells, strong hover, outlined input row
+   ============================================================ */
+.boards-grid.byhand {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 760px) { .boards-grid.byhand { grid-template-columns: repeat(2, 1fr); } }
+.boards-grid.byhand .mini { gap: 5px; }
+.boards-grid.byhand .mini .cell { font-size: 15px; border-radius: 2px; }
+
+.boards-grid.byhand .mini .row.input {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 3px;
+  margin-top: 4px;
+}
+.boards-grid.byhand .mini .row.input .cell {
+  transition: transform .08s ease, filter .08s ease, box-shadow .08s ease;
+  position: relative;
+}
+.boards-grid.byhand .mini .row.input .cell:hover,
+.boards-grid.byhand .mini .row.input .cell.kfocus {
+  transform: scale(1.12);
+  filter: brightness(1.1);
+  z-index: 2;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+.boards-grid.byhand .mini .row.input .cell.kfocus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.boards-grid.byhand .mini .row.input .cell:active {
+  transform: scale(0.94);
+  filter: brightness(0.95);
+}
+.boards-grid.byhand .mini .row.input .cell.tap {
+  animation: tap .25s ease;
+}
+@keyframes tap {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); filter: brightness(1.2); }
+  100% { transform: scale(1); }
+}
 
 /* ============================================================
    top-5 candidates panel

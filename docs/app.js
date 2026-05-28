@@ -32,6 +32,8 @@
   // Top-5 on a fresh state is the same every time — score it once at init so
   // tab switches don't trigger a 500ms full re-rank for no reason.
   let freshTop5 = null;
+  // Keyboard focus position in by-hand mode: {board: 0..31, pos: 0..4}.
+  let kfocus = null;
 
   // Per-board "history" lives on each board: array of {word, pattern}. We add
   // a row after every guess for boards that were unsolved when it was played.
@@ -116,12 +118,13 @@
     if (opts.inputWord && !bd.solved) {
       el.querySelectorAll(".row.input .cell").forEach((c) => {
         const p = parseInt(c.dataset.p, 10);
-        c.addEventListener("click", () => cycleByhandCell(b, p));
+        c.addEventListener("click", () => { setKfocus(b, p); cycleByhandCell(b, p); });
         // Colour from the current digit. d=0 is the "absent/grey" entry of the
         // pattern triple, so we show grey by default — same as duotrigordle.
         const d = byhandDigits ? byhandDigits[b][p] : 0;
         c.classList.remove("empty", "b", "y", "g");
         c.classList.add(digitClass(d));
+        if (kfocus && kfocus.board === b && kfocus.pos === p) c.classList.add("kfocus");
       });
     }
   }
@@ -202,6 +205,8 @@
     document.querySelector(".mode-practice").hidden = m !== "practice";
     document.querySelector(".mode-daily").hidden    = m !== "daily";
     document.querySelector(".mode-byhand").hidden   = m !== "byhand";
+    // Bigger grid + hover effects in by-hand mode.
+    grid.classList.toggle("byhand", m === "byhand");
     log.innerHTML = "";
     placeholderCands();
     clearAll();
@@ -424,6 +429,38 @@
     if (!byhandDigits) return;
     byhandDigits[b][p] = (byhandDigits[b][p] + 1) % 3;
     updateByhandRender();
+    pulseCell(b, p);
+  }
+  function setByhandCellDigit(b, p, d) {
+    if (!byhandDigits) return;
+    byhandDigits[b][p] = d;
+    updateByhandRender();
+    pulseCell(b, p);
+  }
+  function pulseCell(b, p) {
+    const el = cells[b] && cells[b].querySelector(`.row.input .cell[data-p="${p}"]`);
+    if (!el) return;
+    el.classList.remove("tap"); void el.offsetWidth; el.classList.add("tap");
+  }
+  function setKfocus(b, p) {
+    kfocus = { board: b, pos: p };
+    // Lightweight: toggle .kfocus on the relevant cells without a full re-render.
+    document.querySelectorAll(".mini .row.input .cell.kfocus").forEach((c) => c.classList.remove("kfocus"));
+    const el = cells[b] && cells[b].querySelector(`.row.input .cell[data-p="${p}"]`);
+    if (el) el.classList.add("kfocus");
+  }
+  function moveKfocus(db, dp) {
+    if (!byhandState) return;
+    let b = kfocus ? kfocus.board : 0;
+    let p = kfocus ? kfocus.pos : 0;
+    // Step until we land on an unsolved board (input rows only exist there).
+    for (let tries = 0; tries < NUM_BOARDS * 5; tries++) {
+      p += dp;
+      if (p > 4) { p = 0; b = (b + 1) % NUM_BOARDS; }
+      else if (p < 0) { p = 4; b = (b - 1 + NUM_BOARDS) % NUM_BOARDS; }
+      if (db !== 0) { b = (b + db + NUM_BOARDS) % NUM_BOARDS; if (dp === 0) break; }
+      if (!byhandState.boards[b].solved) { setKfocus(b, p); return; }
+    }
   }
   function clearByhandRow() {
     if (!byhandDigits) return;
@@ -493,6 +530,24 @@
   byhandSubmit.addEventListener("click", submitByhandRow);
   byhandClear.addEventListener("click", clearByhandRow);
   byhandReset.addEventListener("click", newByhandGame);
+
+  // Keyboard shortcuts for by-hand mode. Only fire when the mode is active and
+  // focus isn't in a text input — so typing the word in the input box still
+  // works normally. 1/B = grey, 2/Y = yellow, 3/G = green; arrows navigate.
+  document.addEventListener("keydown", (e) => {
+    if (mode !== "byhand") return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    const k = e.key.toLowerCase();
+    if (k === "1" || k === "b") { if (kfocus) { setByhandCellDigit(kfocus.board, kfocus.pos, 0); e.preventDefault(); } }
+    else if (k === "2" || k === "y") { if (kfocus) { setByhandCellDigit(kfocus.board, kfocus.pos, 1); e.preventDefault(); } }
+    else if (k === "3" || k === "g") { if (kfocus) { setByhandCellDigit(kfocus.board, kfocus.pos, 2); e.preventDefault(); } }
+    else if (k === "arrowright") { moveKfocus(0, 1); e.preventDefault(); }
+    else if (k === "arrowleft")  { moveKfocus(0, -1); e.preventDefault(); }
+    else if (k === "arrowdown")  { moveKfocus(1, 0); e.preventDefault(); }
+    else if (k === "arrowup")    { moveKfocus(-1, 0); e.preventDefault(); }
+    else if (k === "enter")      { if (!byhandSubmit.disabled) submitByhandRow(); }
+  });
 
   init().catch((e) => setStatus("failed to load: " + e));
 })();
