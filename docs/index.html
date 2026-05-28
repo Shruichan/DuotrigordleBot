@@ -4,175 +4,112 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Duotrigordle Bot</title>
-  <meta name="description" content="A solver for duotrigordle.com — 32 Wordle boards in 37 guesses. Averages 33.6 with a 35-guess cap. Runs in your browser." />
+  <meta name="description" content="A solver for the daily 32-Wordle on duotrigordle.com. Plays it in 33–35 guesses, runs in your browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap">
-      <a class="brand" href="#top">
-        <span class="brand-mark">D</span><span class="brand-name">Duotrigordle Bot</span>
-      </a>
-      <nav>
-        <a href="#demo">demo</a>
-        <a href="#install">install</a>
-        <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">github ↗</a>
-      </nav>
-    </div>
-  </header>
+  <main>
+    <header class="intro">
+      <p class="lede">
+        <b>Duotrigordle Bot</b> — a solver for the daily 32-Wordle on
+        <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a>.
+        Plays it in <b>33–35 guesses</b> on average, runs entirely in your browser.
+        <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">source on GitHub</a>.
+      </p>
+    </header>
 
-  <main id="top">
-    <section class="hero wrap">
-      <h1>Thirty-two Wordles,<br />played <em>well</em>.</h1>
-
-      <div class="hero-tiles" aria-hidden="true">
-        <span class="tile g">L</span>
-        <span class="tile g">I</span>
-        <span class="tile gr">T</span>
-        <span class="tile y">R</span>
-        <span class="tile g">E</span>
+    <section class="solver">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-mode="watch">watch</button>
+        <button class="tab" data-mode="practice">practice</button>
+        <button class="tab" data-mode="daily">help my daily</button>
       </div>
 
-      <ul class="hero-stats">
-        <li><b>33.62</b><span>mean</span></li>
-        <li class="dot"></li>
-        <li><b>35</b><span>cap</span></li>
-        <li class="dot"></li>
-        <li><b>0</b><span>thirty-sixes</span></li>
-      </ul>
-
-      <div class="cta">
-        <a class="btn primary" href="#install">install</a>
-        <a class="btn ghost" href="#demo">try it</a>
-      </div>
-    </section>
-
-    <section id="demo" class="section">
-      <div class="wrap">
-        <header class="section-head">
-          <span class="section-label">§ 01 · solver</span>
-          <h2>Play it.</h2>
-        </header>
-
-        <div class="tabs">
-          <button class="tab active" data-mode="watch">watch a random game</button>
-          <button class="tab" data-mode="play">help me with today's</button>
+      <div class="card">
+        <!-- WATCH: auto-solve a random game -->
+        <div class="controls mode-watch">
+          <input id="answers" placeholder="32 answers comma-separated — or just shuffle" spellcheck="false" />
+          <button class="btn ghost" id="shuffleBtn">shuffle</button>
+          <button class="btn primary" id="playBtn" disabled>play</button>
         </div>
 
-        <div class="demo-card">
-          <!-- WATCH controls -->
-          <div class="demo-controls mode-watch">
-            <input id="answers" placeholder="32 comma-separated answers — or hit shuffle" spellcheck="false" />
-            <button class="btn ghost small" id="shuffleBtn">shuffle</button>
-            <button class="btn primary small" id="playBtn" disabled>play</button>
-          </div>
+        <!-- PRACTICE: you play, bot suggests -->
+        <div class="controls mode-practice" hidden>
+          <input id="practiceWord" placeholder="type a 5-letter guess" maxlength="5" spellcheck="false" />
+          <button class="btn ghost" id="useBotBtn" disabled>use bot's pick</button>
+          <button class="btn primary" id="submitWord" disabled>submit</button>
+          <button class="btn ghost" id="newPracticeBtn">new game</button>
+        </div>
 
-          <!-- PLAY-ALONG controls -->
-          <div class="demo-controls mode-play" hidden>
-            <input id="gameId" type="number" min="1" placeholder="daily #" />
-            <input id="playedGuesses" placeholder="your guesses so far, comma-separated (e.g. LITRE,SLATE,…)" spellcheck="false" />
-            <button class="btn primary small" id="analyzeBtn" disabled>next 5 picks</button>
-          </div>
+        <!-- DAILY: paste daily # + your played guesses, get next picks -->
+        <div class="controls mode-daily" hidden>
+          <input id="gameId" type="number" min="1" placeholder="daily #" />
+          <input id="playedGuesses" placeholder="your guesses, comma-separated" spellcheck="false" />
+          <button class="btn primary" id="analyzeBtn" disabled>next picks</button>
+        </div>
 
-          <div class="progress"><i id="bar"></i></div>
-          <div class="demo-status" id="status">loading the solver…</div>
+        <div class="progress"><i id="bar"></i></div>
+        <div class="status" id="status">loading…</div>
 
-          <div class="demo-layout">
-            <div class="boards-pane">
-              <div class="boards-head">
-                <span class="meta-label">boards</span>
-                <span class="meta-info"><b id="solvedCount">0</b>/32 solved</span>
-              </div>
-              <div class="boards-grid" id="grid"></div>
+        <div class="layout">
+          <div class="boards-pane">
+            <div class="head">
+              <span class="label">boards</span>
+              <span class="info"><b id="solvedCount">0</b>/32 solved · guess <b id="guessNum">0</b>/37</span>
             </div>
-
-            <aside class="thinking-pane">
-              <div class="thinking-head">
-                <span class="meta-label">top 5 picks</span>
-                <span class="meta-info"><span class="turn-pill">turn <b id="turnNum">—</b></span></span>
-              </div>
-              <ol class="candidates" id="cands"></ol>
-              <div class="log-head"><span class="meta-label">play log</span></div>
-              <div class="log" id="log"></div>
-            </aside>
+            <div class="boards-grid" id="grid"></div>
+            <p class="legend">
+              green cells = letters the bot has pinned down at that position. number = candidates left for that board.
+            </p>
           </div>
+
+          <aside class="thinking-pane">
+            <div class="head">
+              <span class="label">top 5 picks</span>
+              <span class="info"><span class="pill">turn <b id="turnNum">—</b></span></span>
+            </div>
+            <ol class="cands" id="cands"></ol>
+            <div class="log-head"><span class="label">log</span></div>
+            <div class="log" id="log"></div>
+          </aside>
         </div>
-
-        <p class="hint">
-          <b>play-along:</b> the daily number is at the top of
-          <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a>
-          (e.g. <code>#1024</code>). Type your played guesses and the bot shows the next five.
-        </p>
       </div>
+
+      <p class="tip" id="modeTip">
+        Roll random answers and watch the bot play.
+      </p>
     </section>
 
-    <section id="numbers" class="section alt">
-      <div class="wrap">
-        <header class="section-head">
-          <span class="section-label">§ 02 · numbers</span>
-          <h2>2k games. One risk dial.</h2>
-        </header>
-        <table class="results">
-          <thead>
-            <tr><th>strategy</th><th>mean</th><th>max</th><th>33s</th><th>34s</th><th>35s</th><th>36s</th></tr>
-          </thead>
-          <tbody>
-            <tr class="best">
-              <td><span class="badge green">default</span> tail-averse</td>
-              <td><b>33.76</b></td><td><b>35</b></td>
-              <td>548</td><td>1382</td><td>67</td><td><b>0</b></td>
-            </tr>
-            <tr>
-              <td>lowest-mean</td>
-              <td><b>33.62</b></td><td>36</td>
-              <td>831</td><td>1071</td><td>87</td><td>3</td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="footnote">
-          The ~3% of 35-guess games are <em>structural</em> — see
-          <a href="https://github.com/Shruichan/DuotrigordleBot/blob/main/EXPERIMENTS.md" target="_blank" rel="noopener">EXPERIMENTS.md</a>.
-        </p>
-      </div>
+    <section class="results">
+      <h2>How it does</h2>
+      <p>2000 daily-style games. Two configs on the same risk dial.</p>
+      <table>
+        <thead><tr><th></th><th>mean</th><th>max</th><th>33s</th><th>34s</th><th>35s</th><th>36s</th></tr></thead>
+        <tbody>
+          <tr class="best"><td>tail-averse <span class="muted">(default)</span></td><td><b>33.76</b></td><td><b>35</b></td><td>548</td><td>1382</td><td>67</td><td><b>0</b></td></tr>
+          <tr><td>lowest-mean greedy</td><td><b>33.62</b></td><td>36</td><td>831</td><td>1071</td><td>87</td><td>3</td></tr>
+        </tbody>
+      </table>
+      <p class="footnote">The ~3% of 35-guess games are structural — see <a href="https://github.com/Shruichan/DuotrigordleBot/blob/main/EXPERIMENTS.md" target="_blank" rel="noopener">EXPERIMENTS.md</a> for why search doesn't crack it.</p>
     </section>
 
-    <section id="install" class="section">
-      <div class="wrap">
-        <header class="section-head">
-          <span class="section-label">§ 03 · install</span>
-          <h2>Use it on duotrigordle.com.</h2>
-        </header>
-        <ol class="steps">
-          <li>
-            <span class="step-num">01</span>
-            <h3>Grab the repo</h3>
-            <p>You only need the <code>extension/</code> folder from
-              <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">GitHub</a>.</p>
-          </li>
-          <li>
-            <span class="step-num">02</span>
-            <h3>Load unpacked</h3>
-            <p><code>chrome://extensions</code> → Developer mode → <em>Load unpacked</em> → pick <code>extension/</code>.</p>
-          </li>
-          <li>
-            <span class="step-num">03</span>
-            <h3>Play</h3>
-            <p>Open <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a> — overlay shows the pick.</p>
-          </li>
-        </ol>
-      </div>
+    <section class="install">
+      <h2>Use it on the real site</h2>
+      <ol>
+        <li>Clone the <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">repo</a>; you only need <code>extension/</code>.</li>
+        <li>Open <code>chrome://extensions</code>, turn on developer mode, <em>Load unpacked</em>, pick that folder.</li>
+        <li>Open <a href="https://duotrigordle.com" target="_blank" rel="noopener">duotrigordle.com</a> — the overlay shows the next guess.</li>
+      </ol>
     </section>
   </main>
 
   <footer>
-    <div class="wrap">
-      <span>not affiliated with duotrigordle.com.</span>
-      <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">source ↗</a>
-    </div>
+    <span>not affiliated with duotrigordle.com.</span>
+    <a href="https://github.com/Shruichan/DuotrigordleBot" target="_blank" rel="noopener">github ↗</a>
   </footer>
 
   <script src="engine.js"></script>

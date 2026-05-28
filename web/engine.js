@@ -362,6 +362,25 @@
 
     guessWord(g) { return this.guesses[g]; }
 
+    // For each position 0..4 in a board's candidate set, return the letter the
+    // bot has locked in (all candidates share that letter at that position) or
+    // "" if it's still undetermined. This is the "letter organization" view of
+    // what the bot knows for that board.
+    boardLocks(board) {
+      const out = ["", "", "", "", ""];
+      const cs = board.cands;
+      if (cs.length === 0) return out;
+      const first = this.solutions[cs[0]];
+      for (let p = 0; p < 5; p++) {
+        let all = true;
+        for (let i = 1; i < cs.length; i++) {
+          if (this.solutions[cs[i]][p] !== first[p]) { all = false; break; }
+        }
+        out[p] = all ? first[p] : "";
+      }
+      return out;
+    }
+
     // "GYBBG" -> base-3 pattern (G=2, Y=1, B=0), position 0 least-significant.
     static parsePattern(str) {
       let p = 0, m = 1;
